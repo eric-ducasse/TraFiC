@@ -1,0 +1,6 @@
+Name: Brass
+Type: Isotropic Elastic Medium
+Density [mg/mm³]: 8.400000
+Stiffnesses [GPa] (Lamé's Coefficients)
+c12: 8.1312000e+01
+c44: 4.0656000e+01

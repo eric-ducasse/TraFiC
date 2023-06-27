@@ -1,0 +1,6 @@
+Name: Aluminum
+Type: Isotropic Elastic Medium
+Density [mg/mm³]: 2.700000
+Stiffnesses [GPa] (Lamé's Coefficients)
+c12: 5.4938303e+01
+c44: 2.6451776e+01

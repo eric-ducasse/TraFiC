@@ -1,0 +1,24 @@
+============================================================
+Plate with 1 layer and 2 materials
+============================================================
+Material of top half-space: Water
+------------------------------------------------------------
+Layer 1:
+	Width: 1.000 mm
+	Material: Epoxy
+------------------------------------------------------------
+Material of bottom half-space: Water
+============================================================
+Name: Water
+Type: Fluid
+Density [mg/mm³]: 1.000000
+Speed of sound [mm/µs]: 1.5000000e+00
+------------------------------------------------------------
+Name: Epoxy
+Type: Isotropic Elastic Medium with complex stiffnesses
+Density [mg/mm³]: 1.170000
+Stiffnesses [GPa] (Lamé's Coefficients)
+c12: 5.1397520e+00+1.0919400e-02j
+c44: 1.4146240e+00+4.5040300e-02j
+============================================================
+Last Results Folder: Data/Results/Immersed_Epoxy_plate

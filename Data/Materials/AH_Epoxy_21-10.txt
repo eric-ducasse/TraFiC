@@ -1,0 +1,6 @@
+Name: Epoxy
+Type: Isotropic Elastic Medium
+Density [mg/mm³]: 1.170000
+Stiffnesses [GPa] (Lamé's Coefficients)
+c12: 5.1384552e+00
+c44: 1.4156968e+00

@@ -1,0 +1,5 @@
+Name: Viscous Water
+Type: Fluid with complex stiffnesses
+Density [mg/mm³]: 1.000000
+Speed of sound [mm/µs]: 1.4840000e+00
+Attenuation coefficient: 0.06000

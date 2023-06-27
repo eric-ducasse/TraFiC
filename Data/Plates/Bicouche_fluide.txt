@@ -1,0 +1,26 @@
+============================================================
+Plate with 2 layers and 2 materials
+============================================================
+Material of top half-space: [ Vacuum ]
+------------------------------------------------------------
+Layer 1:
+	Width: 1.000 mm
+	Material: Water
+------------------------------------------------------------
+Layer 2:
+	Width: 1.700 mm
+	Material: Light Fluid
+------------------------------------------------------------
+Material of bottom half-space: [ Vacuum ]
+============================================================
+Name: Water
+Type: Fluid
+Density [mg/mm³]: 1.000000
+Speed of sound [mm/µs]: 1.4970000e+00
+------------------------------------------------------------
+Name: Light Fluid
+Type: Fluid
+Density [mg/mm³]: 0.700000
+Speed of sound [mm/µs]: 8.0000000e-01
+============================================================
+Last Results Folder: Data/Results/bicouche_fluide

@@ -1,0 +1,24 @@
+============================================================
+Plate with 1 layer and 2 materials
+============================================================
+Material of top half-space: [ Vacuum ]
+------------------------------------------------------------
+Layer 1:
+	Width: 1.000 mm
+	Material: Aluminum
+------------------------------------------------------------
+Material of bottom half-space: Water
+============================================================
+Name: Aluminum
+Type: Isotropic Elastic Medium
+Density [mg/mm³]: 2.700000
+Stiffnesses [GPa] (Lamé's Coefficients)
+c12: 5.1890000e+01
+c44: 2.5950000e+01
+------------------------------------------------------------
+Name: Water
+Type: Fluid
+Density [mg/mm³]: 1.000000
+Speed of sound [mm/µs]: 1.5000000e+00
+============================================================
+Last Results Folder: Data/Results/semi-immersed_aluminum_plate

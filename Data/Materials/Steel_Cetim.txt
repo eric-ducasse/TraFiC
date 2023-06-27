@@ -1,0 +1,6 @@
+Name: Steel Cetim
+Type: Isotropic Elastic Medium
+Density [mg/mm³]: 7.848200
+Stiffnesses [GPa] (Lamé's Coefficients)
+c12: 1.1476000e+02
+c44: 7.9770000e+01

@@ -1,0 +1,6 @@
+Type : Isotropic Elastic Medium
+Name : mon_iso_1
+Density [kg.m^-3] : 2500.000
+Stiffnesses [Pa] (Lamé Coefficients)
+c12 : 5.0000000e+10
+c44 : 4.0000000e+10

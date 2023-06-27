@@ -1,0 +1,4 @@
+Name: Light Water
+Type: Fluid
+Density [mg/mm³]: 0.200000
+Speed of sound [mm/µs]: 8.0000000e-01
