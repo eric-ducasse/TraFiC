@@ -1,4 +1,4 @@
-# Version 1.7 - 2023, April, 14
+# Version 1.71 - 2023, June, 29
 # Copyright (Eric Ducasse 2020)
 # Licensed under the EUPL-1.2 or later
 # Institution :  I2M / Arts & Metiers ParisTech
@@ -39,7 +39,16 @@ class USLayer :
 class USMultilayeredPlate :
     """ US multilayered plate containing layers, each layer characterized by
         a thickness and an oriented material."""
-    def __init__(self,thickness,material,angles=None) :
+    THS = "Upper Half-Space"
+    BHS = "Lower Half-Space"
+    VACUUM = "[ Vacuum ]"
+    WALL = "[ Rigid Wall ]"
+    HS_CONDITIONS = ["vacuum", "wall"]
+    UNDEFINED = "(Undefined)"
+    DLINE = 60*"=" # Double horizontal line for text files
+    SLINE = 60*"-" # Simple horizontal line for text files
+    #-----------------------------------------------------------------------
+    def __init__(self, thickness, material, angles=None) :
         """Creates a monolayer plate in Vacuum."""
         usmat = USMaterial(material,angles,self)
         self.__Lusm = [usmat] # List of US materials
@@ -124,7 +133,7 @@ class USMultilayeredPlate :
             npw += 2*usm.nb_pw
         return npw
     #--------------------------------------------------------
-    def appendLayer(self,thickness,material,angles=None) :
+    def appendLayer(self, thickness, material, angles=None) :
         new_usm = USMaterial(material,angles,self)
         new_layer = USLayer(thickness,new_usm)
         prev_layer = self.__lyrs[-1]
@@ -520,7 +529,7 @@ class USMultilayeredPlate :
         for i,F in enumerate(flds) :
             big_array[...,i] = F
         return big_array
-    #--------------------------------------------------------
+    #---------------------------------------------------------------------
     def copy(self) :
         first_layer = self.layers[0]
         mat0 = first_layer.usm.mat
@@ -535,7 +544,7 @@ class USMultilayeredPlate :
             mat = self.bottomUSmat.mat
             new_plate.setBottomHalfSpace(mat)
         return new_plate
-    #-------------------------------------------------------- 
+    #---------------------------------------------------------------------
     def __str__(self) :
         msg = 70*"*"+"\n"
         msg += "{}-layered plate of thickness {:.2f} mm and with " + \
@@ -574,7 +583,306 @@ class USMultilayeredPlate :
         msg += "\n Bottom Half-Space: {}".format(bhs)
         msg += "\n"+70*"*"
         return msg
-#========= Tests ===========================================================
+    #---------------------------------------------------------------------
+    def write_in_file(self, file_path=None) :
+        """Plate parameters saved in a text file.
+           If file_path is None, the text is simply returned."""
+        # Material list 
+        materials = []
+        # Layers
+        layer_data = []
+        for lay in self.layers :
+            w_mm = 1e3*lay.h
+            material = lay.usm.mat
+            if material not in materials :
+                materials.append(material)
+            w = f"Width: {w_mm:.3f} mm"
+            mat = f"Material: {material.name}"
+            layer_data.append( [w,mat] )
+        # Top half-space
+        if self.__ths is None :
+            top_half_space = self.VACUUM
+        elif self.__ths == "wall" :
+            top_half_space = self.WALL
+        else :
+            material = self.__ths.mat
+            if material not in materials :
+                materials.append(material)
+            top_half_space = material.name
+        # Bottom half-space
+        if self.__bhs is None :
+            bot_half_space = self.VACUUM
+        elif self.__bhs == "wall" :
+            bot_half_space = self.WALL
+        else :
+            material = self.__bhs.mat
+            if material not in materials :
+                materials.append(material)
+            bot_half_space = material.name
+        # Exported text
+        text = self.export_to_text(layer_data, materials, \
+                                   top_half_space, bot_half_space)
+        if file_path is None :
+            return text        
+        try :
+            with open(file_path, "w") as strm :
+                strm.write(text)
+        except Exception as err :
+            msg = f"USMultilayeredPlate.write_in_file\n'{err}'"
+            raise ValueError(msg)
+    #---------------------------------------------------------------------
+    @staticmethod
+    def export_to_text(layer_data, materials, ths, bhs) :
+        """ Export data of a multilayer plate to text.
+            layer_data: pairs of string
+                       ["Width: {value} mm", "Material: {name}"]
+            materials: list of materials
+            ths: top half-space (name, "[ Vacuum ]" or "[ Wall ]")
+            bhs: bottom half-space
+        """
+        sline = USMultilayeredPlate.SLINE
+        dline = USMultilayeredPlate.DLINE
+        # Voir GeometryFrame.is_completely_defined()
+        text = dline
+        nb_lay, nb_mat = len(layer_data), len(materials)
+        text += f"\nPlate with {nb_lay} layer"
+        if nb_lay > 1 : text += "s"
+        text += f" and {nb_mat} material"
+        if nb_mat>1 : text += "s"
+        text += "\n" + dline + "\n"
+        text += "Material of top half-space: " + ths
+        text += "\n" + sline + "\n"
+        for i,(w,m) in enumerate(layer_data,1) :
+            text += f"Layer {i}:\n\t{w}\n\t{m}"
+            text += "\n" + sline + "\n"
+        text += "Material of bottom half-space: " + bhs
+        text += "\n" + dline + "\n"
+        if len(materials) > 0 :
+            for mat in materials[:-1] :
+                text += mat.tosave() + sline + "\n"
+            text += materials[-1].tosave() + dline + "\n"
+        return text
+    #---------------------------------------------------------------------
+    @staticmethod
+    def import_from_text(text, raised_errors=True) :  
+        """ Import data from a multilayer plate to text.
+            returns (layer_data, materials, ths, bhs)   
+            layer_data: pairs [ w_m (float), material ]
+            materials: list of materials
+            ths: top half-space (material, VACUUM, WALL or UNDEFINED)
+            bhs: bottom half-space
+        """
+        error_msg = "USMultilayeredPlate.import_from_text :: error:"
+        VACUUM = USMultilayeredPlate.VACUUM
+        WALL = USMultilayeredPlate.WALL
+        HS_CONDITIONS = [VACUUM, WALL]
+        UNDEFINED = USMultilayeredPlate.UNDEFINED
+        THS = USMultilayeredPlate.THS
+        BHS = USMultilayeredPlate.BHS
+        # Warning: note the .lower()
+        rows = [ r.strip().lower() for r in text.split("\n") ]
+        layer_data, materials = [],[]
+        # Number of layers and materials
+        searching = True
+        nb_layer, nb_material = None,None
+        for r,row in enumerate(rows) :
+            if "plate with" in row :
+                searching = False
+                words = row.split()
+                for i,w in enumerate(words,-1) :
+                    if w.startswith("layer") :
+                        nb_layer = int(words[i])
+                    if w.startswith("material") :
+                        nb_material = int(words[i])
+                break
+        if searching or nb_layer is None or nb_material is None :
+            msg = error_msg + "\n\t'plate with x layer(s) and y " + \
+                              "material(s)' not found."
+            if raised_errors : raise ValueError(msg)
+            return False, msg, None, None
+        # Top half-space, Bottom half-space and material names
+        r_next = r+1
+        idx_beg, idx_end, idx_mat = None, None, []
+        for r,row in enumerate(rows[r_next:],r_next) :
+            if "top half" in row or "upper half" in row:
+                idx_beg = r
+            elif "bottom half" in row or "lower half" in row:
+                idx_end = r
+            elif "name" in row :
+                idx_mat.append(r)
+        idx_mat.append(r+1)
+        if idx_beg is None or idx_end is None or idx_beg >= idx_end :
+            msg = error_msg + \
+                  "\n\t'unable to identify the geometry area."            
+            if raised_errors : raise ValueError(msg)
+            return False, msg, None, None
+        if len(idx_mat) != nb_material + 1 :
+            msg = error_msg + "\n\t'number of material and material " \
+                              "areas don't match."            
+            if raised_errors : raise ValueError(msg)
+            return False, msg, None, None
+        # Material Dictionary
+        materials = dict()
+        for beg,end in zip(idx_mat[:-1],idx_mat[1:]) :
+            txt = "\n".join(rows[beg:end])
+            try :
+                mat = ImportMaterialFromText(txt)
+                materials[mat.name] = mat
+            except Exception as err :
+                msg = error_msg + f"\n\tMaterial definition\n\t{err}."
+                if raised_errors : raise ValueError(msg)
+                return False, msg, None, None
+        # Top Half-Space
+        row = rows[idx_beg]
+        if "undefined" in row or "unknown" in row :
+            ths = UNDEFINED
+        else :
+            try :
+                ths = row.split(":")[1].strip().title()
+            except Exception as err :
+                msg = error_msg + f"\n\t{THS}\n\t{err}."
+                if raised_errors : raise ValueError(msg)
+                return False, msg, None, None
+        if ths in HS_CONDITIONS :
+            pass
+        elif ths in materials.keys() :
+            ths = materials[ths]
+        else :
+            msg = error_msg + f"\n\t{THS}: unknown " + \
+                              f"'{ths}' material."
+            if raised_errors : raise ValueError(msg)
+            return False, msg, None, None
+        #!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+        # Layers
+        r_next, num_lay = idx_beg+1, 0
+        for r,row in enumerate(rows[r_next:idx_end],r_next) :
+            if row.startswith("layer") :
+                num_lay += 1
+                try :
+                    number = int(row.split(":")[0].split()[1])
+                except Exception as err :
+                    msg = error_msg + f"\n\t[{r}]{row}\n\t{err}."                    
+                    if raised_errors : raise ValueError(msg)
+                    return False, msg, None, None
+                if number != num_lay :
+                    msg = error_msg + f"\n\t[{r}]{row}\n\t" + \
+                          f"Layer Number should be {num_lay}."                   
+                    if raised_errors : raise ValueError(msg)
+                    return False, msg, None, None
+                w_row,m_row = rows[r+1:r+3]
+                # Width
+                if "undefined" in w_row or "unknown" in w_row :
+                    w_m = None
+                else :
+                    try :
+                        val,unit = w_row.split()[-2:]
+                        val = float(val)
+                    except Exception as err :
+                        msg = error_msg + \
+                              f"\n\t[{r+1}]{w_row}\n\t{err}."                   
+                        if raised_errors : raise ValueError(msg)
+                        return False, msg, None, None
+                    if unit == "mm" :
+                        w_m = 1e-3*val
+                    elif unit == "m" :
+                        w_m = val
+                    else :
+                        msg = error_msg + f"\n\t[{r+1}]{w_row}\n\t" + \
+                              f"unknown unit '{unit}'."                  
+                        if raised_errors : raise ValueError(msg)
+                        return False, msg, None, None
+                # Material
+                if "undefined" in m_row or "unknown" in m_row :
+                    mat = None
+                else :
+                    try :
+                        mat_name = m_row.split(":")[-1].strip().title()
+                    except Exception as err :
+                        msg = error_msg + \
+                              f"\n\t[{r+2}]{m_row}\n\t{err}."                  
+                        if raised_errors : raise ValueError(msg)
+                        return False, msg, None, None
+                    if mat_name in materials.keys() :
+                        mat = materials[mat_name]
+                    else :
+                        msg = error_msg + f"\n\t[{r+1}]{m_row}\n\t" + \
+                              f"unknown material '{mat_name}'."                  
+                        if raised_errors : raise ValueError(msg)
+                        return False, msg, None, None
+                # Updating of layer_data:
+                layer_data.append( [w_m, mat] )
+        if num_lay != nb_layer : 
+            msg = "\n\t{num_lay} layers found instead of {nb_layer}."                  
+            if raised_errors : raise ValueError(msg)
+            return False, msg, None, None
+        # Bottom Half-Space
+        row = rows[idx_end]
+        if "undefined" in row or "unknown" in row :
+            bhs = None
+        else :
+            try :
+                bhs = row.split(":")[1].strip().title()
+            except Exception as err :
+                msg = error_msg + f"\n\t{BHS}\n\t{err}."                  
+                if raised_errors : raise ValueError(msg)
+                return False, msg, None, None
+        if bhs in HS_CONDITIONS :
+            pass
+        elif bhs in materials.keys() :
+            bhs = materials[bhs]
+        else :
+            msg = error_msg + f"\n\t{BHS}: unknown '{bhs}' material."                  
+            if raised_errors : raise ValueError(msg)
+            return False, msg, None, None
+        return layer_data, materials, ths, bhs
+    #---------------------------------------------------------------------
+    @staticmethod
+    def import_from_file(file_path) :  
+        """ Returns a USMultilayeredPlate instance from a text file.
+        """
+        error_msg = f"File '{file_path}'\ndoes not seem to " + \
+                     "correspond to a multilayer plate:"
+        pos_enc = ("utf8","cp1252")
+        for enc in pos_enc :
+            try :
+                with open(file_path, "r", encoding=enc) as strm :
+                    text = strm.read()
+                ok = True
+                break
+            except :
+                ok = False
+        if not ok :
+            msg = error_msg + f"\n\tencoding error: not in {pos_enc}."
+            raise ValueError(msg)
+        #
+        layer_data, material, ths, bhs = \
+                    USMultilayeredPlate.import_from_text(text)
+        # First layer
+        w_m, mat = layer_data[0]
+        new_plate = USMultilayeredPlate(w_m, mat)
+        # additional layer(s)
+        for w_m, mat in layer_data[1:] :
+            new_plate.appendLayer(w_m, mat)
+        # Top half-space        
+        VACUUM = USMultilayeredPlate.VACUUM
+        WALL = USMultilayeredPlate.WALL
+        if ths == VACUUM :
+            pass
+        elif ths == WALL :
+            new_plate.setTopHalfSpace("wall")
+        else :
+            new_plate.setTopHalfSpace(ths)
+        # Bottom half-space
+        if bhs == VACUUM :
+            pass
+        elif bhs == WALL :
+            new_plate.setBottomHalfSpace("wall")
+        else :
+            new_plate.setBottomHalfSpace(bhs)        
+
+        return new_plate
+        
+#========= Tests =========================================================
 if __name__ == "__main__" :
     np.set_printoptions(precision=2)
     water = Fluid({"rho":1000.0,"c":1500.0},"Water")
@@ -583,31 +891,24 @@ if __name__ == "__main__" :
     crbepx = TransverselyIsotropicElasticSolid({"rho":1560.0,\
                    "c11":1.4e10, "c12": 8.0e9, "c33": 8.7e10,\
                    "c13": 9.0e9, "c44": 4.7e9}, "Carbon-Epoxy")
-    plate1 = USMultilayeredPlate(0.0004,alu)
+    plate1 = USMultilayeredPlate(0.0015,alu)
 # 3D Test for one set of values s,kx,ky
     # s,kx,ky = 100.0+20.0j, 80.0, 60.0
     # plate1.update([s],[kx],[ky])
     # print(plate1.M[0,0,0])
-    plate1.appendLayer(0.0011,alu)
-    plate1.appendLayer(0.0005,alu)
-    #plate1.appendLayer(0.002,crbepx,(90.0,45.0))
+    plate1.appendLayer(0.002,crbepx,(90.0,45.0))
     plate1.appendLayer(0.0005,water)
-    plate1.setTopHalfSpace(water)
     plate1.setBottomHalfSpace(water)
-    print(plate1)
-##    C,R,d = list(plate1.C),list(plate1.R),plate1.dim
-##    cmin,cmil,rmin = 0,C[0],0
-##    msg = "zeros in [ {}:{} , {}:{} ]: {}"
-##    for cmax,rmax in zip(C[1:]+[d],R+[d]) :
-##        if cmin > 0 :
-##            test = abs(plate1.M[0,0,0,rmin:rmax,:cmin]).max()==0.0
-##            print(msg.format(rmin,rmax,0,cmin,test))
-##        print("[ {}:{} , {}:{} ]".format(rmin,rmax,cmin,cmax))
-##        print(plate1.M[0,0,0,rmin:rmax,cmin:cmax])
-##        if cmax < d :
-##            test = abs(plate1.M[0,0,0,rmin:rmax,cmax:]).max()==0.0
-##            print(msg.format(rmin,rmax,cmax,d,test))
-##        cmin,cmil,rmin = cmil,cmax,rmax
+    # 'write_in_file' method
+    test_text = plate1.write_in_file()
+    print(test_text)
+    # 'import_from_text' static method
+    LLY, MAT, THS, BHS = USMultilayeredPlate.import_from_text(test_text)
+    print("Layers :", [(1e3*w, m.name) for w,m in LLY] )
+    # 'import_from_file' static method
+    plate_pth = "Data/Plates/test_23-06-09.txt"
+    read_plate = USMultilayeredPlate.import_from_file(plate_pth)
+    print(f"Plate imported from 'test_23-06-09.txt' file:\n{read_plate}")
     # Comparison with modes
     from Modes_Monolayer_Plate import *
     from numpy.linalg import eigvals

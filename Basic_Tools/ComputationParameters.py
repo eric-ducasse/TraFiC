@@ -1,4 +1,4 @@
-# Version 1.00 - 2023, June 19
+# Version 1.00 - 2023, June 27
 # Copyright (Eric Ducasse 2020)
 # Licensed under the EUPL-1.2 or later
 # Institution:  I2M / Arts & Metiers ParisTech
@@ -12,6 +12,7 @@ root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(root)
 import TraFiC_init
 from SpaceGridClasses import Space1DGrid, Space2DGrid
+from TraFiC_utilities import MAXMEM
 #=========================================================================
 class ComputationParameters :
     """Management of input and output files for field computations.

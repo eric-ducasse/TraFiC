@@ -1,9 +1,9 @@
-# Version 0.83 - 2021, October 22
+# Version 0.84 - 2023, June 29
 # Copyright (Eric Ducasse 2020)
 # Licensed under the EUPL-1.2 or later
 # Institution:  I2M / Arts & Metiers ParisTech
 # Program name: TraFiC (Transient Field Computation)
-#++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+#++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 import numpy as np
 import os, platform
 from PyQt5.QtWidgets import (QWidget, QFrame, QAction, QLineEdit, \
@@ -19,20 +19,19 @@ if __name__ == "__main__" :
     import TraFiC_init
 from MaterialEdit import Material_App
 from MaterialClasses import *
+from USMultilayeredPlate import USMultilayeredPlate as USMP
 from Small_Widgets import QVLine, QHLine
-#++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+#++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 class Geometry_Frame(QWidget):
     THS = "Upper Half-Space"
     BHS = "Lower Half-Space"
     MAX_LAYER = 30
-    DLINE = 60*"="
-    SLINE = 60*"-"
     RB = 1 # Row(s) before multilayer structure
     FONTSIZE = 11
     FONTNAME = "Arial"
     BUT_W = 250
     BUT_H = 28
-    #--------------------------------------------------------------------
+    #----------------------------------------------------------------------
     def __init__(self, mainWindow):
         QWidget.__init__(self, mainWindow)
         self.mw = mainWindow
@@ -78,7 +77,7 @@ class Geometry_Frame(QWidget):
         self.set_modif(False)
         # User Interface Initialization 
         self.__initUI()       
-    #--------------------------------------------------------------------
+    #----------------------------------------------------------------------
     def __initUI(self):
         # Size
         w = round(0.97*self.mw.WIDTH)
@@ -94,12 +93,12 @@ class Geometry_Frame(QWidget):
         right.addStretch()
         self.grid.addLayout(right,0,2)
         self.setLayout(self.grid)
-    #--------------------------------------------------------------------
+    #----------------------------------------------------------------------
     @property
     def structure_file_path(self) :
         rfp = os.path.relpath(self.__fileLoc+"/"+self.__fileName)
         return rfp.replace("\\", "/")
-    #--------------------------------------------------------------------
+    #----------------------------------------------------------------------
     def set_new_file(self) :
         self.__fileName = self.mw.UNTITLED
         self.__deleteLayers()
@@ -111,15 +110,15 @@ class Geometry_Frame(QWidget):
                               None, True) ]
         self.__rebuildLayers(layers_to_append)
         self.set_modif(False)
-    #--------------------------------------------------------------------
+    #----------------------------------------------------------------------
     @property
     def modif(self) :
         return self.__modif
-    #--------------------------------------------------------------------
+    #----------------------------------------------------------------------
     def set_modif(self, true_false) :
         self.__modif = true_false
         self.mw.update_statusBar()
-    #--------------------------------------------------------------------    
+    #----------------------------------------------------------------------    
     @property
     def shortpath(self) :
         file_path = self.structure_file_path  
@@ -131,32 +130,32 @@ class Geometry_Frame(QWidget):
                    "/"+self.__fileName
         if self.__modif == True : path = "***"+path+"***"
         return path
-    #--------------------------------------------------------------------
+    #----------------------------------------------------------------------
     # Called in the constructor of Layer_Frame
     def append_layer(self, new_layer) :
         self.__layers.append(new_layer)
         self.set_modif(True)
-    #--------------------------------------------------------------------
+    #----------------------------------------------------------------------
     @property
     def number_of_layers(self) :
         return len(self.__layers)-2
-    #--------------------------------------------------------------------
+    #----------------------------------------------------------------------
     @property
     def top_half_space_material(self) :
         return self.mat_of_name(self.__layers[0].mat_name)
-    #--------------------------------------------------------------------
+    #----------------------------------------------------------------------
     @property
     def bottom_half_space_material(self) :
         return self.mat_of_name(self.__layers[-1].mat_name)
-    #--------------------------------------------------------------------
+    #----------------------------------------------------------------------
     def material_of_layer(self, number) :
         """Numbering of layers begins at 1."""
         return self.mat_of_name(self.__layers[number].mat_name)
-    #--------------------------------------------------------------------
+    #----------------------------------------------------------------------
     def width_of_layer(self, number) :
         """Numbering of layers begins at 1."""
         return self.__layers[number].width_in_mm   
-    #--------------------------------------------------------------------
+    #----------------------------------------------------------------------
     def __update_pos(self):
         self.__pos[0].value_in_mm = 0.0
         cur_val = self.__pos[0].value_in_mm
@@ -172,7 +171,7 @@ class Geometry_Frame(QWidget):
                 pos.value_in_mm = None 
         # Global checking of the structure definition
         self.isCompletelyDefinedStructure(False)
-    #--------------------------------------------------------------------
+    #----------------------------------------------------------------------
     def update_list_of_materials(self):
         undef = Layer_Frame.UNDEFINED
         not_cons = Layer_Frame.HS_CONDITIONS + [undef]
@@ -185,7 +184,7 @@ class Geometry_Frame(QWidget):
         list_of_materials.append(undef)
         for lay in self.__layers :
             lay.update_combo(list_of_materials)
-    #--------------------------------------------------------------------
+    #----------------------------------------------------------------------
     def mat_of_name(self, mat_name) :
         if mat_name == Layer_Frame.UNDEFINED : return None
         if mat_name in Layer_Frame.HS_CONDITIONS : return mat_name
@@ -195,7 +194,7 @@ class Geometry_Frame(QWidget):
         print("Geometry_Frame.mat_of_name - Warning:\n\t" +
               f"Material name '{mat_name}' not found")
         return None
-    #--------------------------------------------------------------------
+    #----------------------------------------------------------------------
     def __deleteLayers(self, line=1):
         #Grid dimensions
         rows = len(self.__layers)*2
@@ -236,7 +235,7 @@ class Geometry_Frame(QWidget):
                         item.setParent(None)
         delete_layers.reverse()     
         return delete_layers
-    #--------------------------------------------------------------------
+    #----------------------------------------------------------------------
     def __rebuildLayers(self, layers_to_append):
         nb = len(self.__layers)     
         align = Qt.AlignLeft|Qt.AlignVCenter
@@ -280,20 +279,20 @@ class Geometry_Frame(QWidget):
         self.__update_pos()
         # Global checking of the structure definition included in
         # self.__update_pos()
-    #--------------------------------------------------------------------
+    #----------------------------------------------------------------------
     def deleteLayer(self, lay_frm):
         lay_idx = self.__layers.index(lay_frm)
         delete_layers = self.__deleteLayers(lay_idx)
         self.__rebuildLayers(delete_layers[1:])
         self.set_modif(True)  
-    #--------------------------------------------------------------------
+    #----------------------------------------------------------------------
     def insertLayer(self, lay_idx): 
         self.__layers[1].del_but.setEnabled(True)
         self.__layers[1].del_but.setStyleSheet(Layer_Frame.TEXTCOLOR)               
         delete_layers = self.__deleteLayers(lay_idx)
         self.__rebuildLayers([(None,None,None,False)]+delete_layers)
         self.set_modif(True)  
-    #--------------------------------------------------------------------
+    #----------------------------------------------------------------------
     def setCheckButton(self, ok) :
         if ok :
             self.chk_but.setText("Plate completely defined")
@@ -302,7 +301,7 @@ class Geometry_Frame(QWidget):
             self.chk_but.setText("Definition in progress...")
             self.chk_but.setStyleSheet(self.mw.KO_COLOR)
             self.mw.folderMenu.setEnabled(False)
-    #--------------------------------------------------------------------
+    #----------------------------------------------------------------------
     def isCompletelyDefinedStructure(self, message_box=True) :
         if len(self.__layers) < 3 or not self.__layers[-1].hs :
             return # Rebuilding in progress
@@ -319,7 +318,7 @@ class Geometry_Frame(QWidget):
                 qmb.setDefaultButton(QMessageBox.Ok)
                 rep = qmb.exec_()                
         self.mw.setCompletelyDefinedStructure(ok)
-    #--------------------------------------------------------------------
+    #----------------------------------------------------------------------
     def is_completely_defined(self) :
         msg = "Multilayer Plate Checking:"
         layer_data, material_data = [], []
@@ -378,7 +377,7 @@ class Geometry_Frame(QWidget):
         self.setCheckButton(OK)
         return OK, msg, top_hs_mat_name, layer_data, \
                bottom_hs_mat_name, material_data
-    #--------------------------------------------------------------------
+    #----------------------------------------------------------------------
     def write_in_file(self, file_path=None, ask_file_path=False, \
                       ask_results_folder=False) :
         OK, msg, ths, layer_data, bhs, materials = \
@@ -387,29 +386,13 @@ class Geometry_Frame(QWidget):
             qmb = QMessageBox(self)
             qmb.setWindowTitle("Warning!")
             qmb.setIcon(QMessageBox.Warning)
-            qmb.setText(msg.replace("\n","<br>")+"<br><br><b>Continue?</b>")
+            qmb.setText( msg.replace("\n","<br>") + \
+                         "<br><br><b>Continue?</b>" )
             qmb.setStandardButtons(QMessageBox.Ok | QMessageBox.Cancel);
             qmb.setDefaultButton(QMessageBox.Ok)
             rep = qmb.exec_()
             if rep != QMessageBox.Ok : return False # Abort saving
-        text = self.DLINE
-        nb_lay,nb_mat = len(layer_data), len(materials)
-        text += f"\nPlate with {nb_lay} layer"
-        if nb_lay > 1 : text += "s"
-        text += f" and {nb_mat} material"
-        if nb_mat>1 : text += "s"
-        text += "\n" + self.DLINE + "\n"
-        text += "Material of top half-space: "+ths
-        text += "\n" + self.SLINE + "\n"
-        for i,(w,m) in enumerate(layer_data,1) :
-            text += f"Layer {i}:\n\t{w}\n\t{m}"
-            text += "\n" + self.SLINE + "\n"
-        text += "Material of bottom half-space: "+bhs
-        text += "\n" + self.DLINE + "\n"
-        if len(materials) > 0 :
-            for mat in materials[:-1] :
-                text += mat.tosave() + self.SLINE + "\n"
-            text += materials[-1].tosave() + self.DLINE + "\n"
+        text = USMP.export_to_text(layer_data, materials, ths, bhs)
         new_file_path = True
         if file_path is None :
             if self.__fileName == self.mw.UNTITLED or ask_file_path :
@@ -441,7 +424,7 @@ class Geometry_Frame(QWidget):
             f.write(text)
         self.set_modif(False)
         return True
-    #--------------------------------------------------------------------
+    #----------------------------------------------------------------------
     def read_from_file(self, file_path) :
         error_msg = f"File '{file_path}'\ndoes not seem to " + \
                      "correspond to a multilayer plate:"
@@ -449,13 +432,13 @@ class Geometry_Frame(QWidget):
         results_folder = None
         for enc in pos_enc :
             try :
-                with open(file_path, "r", encoding=enc) as f :
+                with open(file_path, "r", encoding=enc) as strm :
                     rows = []
-                    for r in f :
+                    for r in strm :
                         r = r.strip()
                         if "results folder" in r.lower() :
                            results_folder = r.split(":")[1].strip()
-                           print("Results folder:",results_folder)
+                           print("Results folder:", results_folder)
                         else :
                             rows.append(r.lower())
                 ok = True
@@ -465,143 +448,19 @@ class Geometry_Frame(QWidget):
         if not ok :
             msg = error_msg + f"\n\tencoding error: not in {pos_enc}."
             return False, msg
-        searching = True
-        nb_layer, nb_material = None,None
-        for r,row in enumerate(rows) :
-            if "plate with" in row :
-                searching = False
-                words = row.split()
-                for i,w in enumerate(words,-1) :
-                    if w.startswith("layer") :
-                        nb_layer = int(words[i])
-                    if w.startswith("material") :
-                        nb_material = int(words[i])
-                break
-        if searching or nb_layer is None or nb_material is None :
-            msg = error_msg + "\n\t'plate with x layer(s) and y " + \
-                              "material(s)' not found."
-            return False, msg
-        r_next = r+1
-        idx_beg, idx_end, idx_mat = None, None, []
-        for r,row in enumerate(rows[r_next:],r_next) :
-            if "top half" in row or "upper half" in row:
-                idx_beg = r
-            elif "bottom half" in row or "lower half" in row:
-                idx_end = r
-            elif "name" in row :
-                idx_mat.append(r)
-        idx_mat.append(r+1)
-        if idx_beg is None or idx_end is None or idx_beg >= idx_end :
-            msg = error_msg + \
-                  "\n\t'unable to identify the geometry area."
-            return False, msg
-        if len(idx_mat) != nb_material + 1 :
-            msg = error_msg + "\n\t'number of material and material " \
-                              "areas don't match."
-            return False, msg
-        # Material Dictionary
-        materials = dict()
-        for beg,end in zip(idx_mat[:-1],idx_mat[1:]) :
-            txt = "\n".join(rows[beg:end])
-            try :
-                mat = ImportMaterialFromText(txt)
-                materials[mat.name] = mat
-            except Exception as err :
-                msg = error_msg + f"\n\tMaterial definition\n\t{err}."
-                return False, msg
-        # Top Half-Space
-        row = rows[idx_beg]
-        if "undefined" in row or "unknown" in row :
-            mat_ths = None
-        else :
-            try :
-                mat_ths = row.split(":")[1].strip().title()
-            except Exception as err :
-                msg = error_msg + f"\n\t{self.THS}\n\t{err}."
-                return False, msg
-        if mat_ths in Layer_Frame.HS_CONDITIONS :
-            pass
-        elif mat_ths in materials.keys() :
-            mat_ths = materials[mat_ths]
-        else :
-            msg = error_msg + f"\n\t{self.THS}: unknown " + \
-                              f"'{mat_ths}' material."
-            return False, msg
+        txt = "\n".join(rows)
+        #------------------------------------------------------------------
+        layer_data, materials, mat_ths, mat_bhs = \
+                    USMP.import_from_text(txt, raised_errors=False)
+        if isinstance(layer_data, bool) : # necessary False
+            return False, materials
+        #!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
         self.__layers[0].set_material(mat_ths)
         args_lay = []
-        # Layers
-        r_next, num_lay = idx_beg+1, 0
-        for r,row in enumerate(rows[r_next:idx_end],r_next) :
-            if row.startswith("layer") :
-                num_lay += 1
-                try :
-                    number = int(row.split(":")[0].split()[1])
-                except Exception as err :
-                    msg = error_msg + f"\n\t[{r}]{row}\n\t{err}."
-                    return False, msg
-                if number != num_lay :
-                    msg = error_msg + f"\n\t[{r}]{row}\n\t" + \
-                          f"Layer Number should be {num_lay}."
-                    return False, msg
-                w_row,m_row = rows[r+1:r+3]
-                # Width
-                if "undefined" in w_row or "unknown" in w_row :
-                    w_m = None
-                else :
-                    try :
-                        val,unit = w_row.split()[-2:]
-                        val = float(val)
-                    except Exception as err :
-                        msg = error_msg + \
-                              f"\n\t[{r+1}]{w_row}\n\t{err}."
-                        return False, msg
-                    if unit == "mm" :
-                        w_m = 1e-3*val
-                    elif unit == "m" :
-                        w_m = val
-                    else :
-                        msg = error_msg + f"\n\t[{r+1}]{w_row}\n\t" + \
-                              f"unknown unit '{unit}'."
-                        return False, msg
-                # Material
-                if "undefined" in m_row or "unknown" in m_row :
-                    mat = None
-                else :
-                    try :
-                        mat_name = m_row.split(":")[-1].strip().title()
-                    except Exception as err :
-                        msg = error_msg + \
-                              f"\n\t[{r+2}]{m_row}\n\t{err}."
-                        return False, msg
-                    if mat_name in materials.keys() :
-                        mat = materials[mat_name]
-                    else :
-                        msg = error_msg + f"\n\t[{r+1}]{m_row}\n\t" + \
-                              f"unknown material '{mat_name}'."
-                        return False, msg
-                args_lay.append( [None, mat, w_m, False] )
-        if num_lay != nb_layer : 
-            msg = "\n\t{num_lay} layers found instead of {nb_layer}."           
-            return False, msg
-        # Bottom Half-Space
-        row = rows[idx_end]
-        if "undefined" in row or "unknown" in row :
-            mat_bhs = None
-        else :
-            try :
-                mat_bhs = row.split(":")[1].strip().title()
-            except Exception as err :
-                msg = error_msg + f"\n\t{self.BHS}\n\t{err}."
-                return False, msg
-        if mat_bhs in Layer_Frame.HS_CONDITIONS :
-            pass
-        elif mat_bhs in materials.keys() :
-            mat_bhs = materials[mat_bhs]
-        else :
-            msg = error_msg + f"\n\t{self.BHS}: unknown " + \
-                              f"'{mat_bhs}' material."
-            return False, msg
-        args_lay.append( [self.BHS, mat_bhs, None, True] )
+        for w_m, mat in layer_data :
+            args_lay.append( [None, mat, w_m, False] )
+        args_lay.append( [self.BHS, mat_bhs, None, True] ) 
+        #------------------------------------------------------------------
         # Rebuilding the layers
         self.__deleteLayers()
         self.__rebuildLayers(args_lay)
@@ -633,7 +492,7 @@ class Layer_Frame(QFrame) :
     LABEL_W = 200
     HEIGHT = 40
     LABEL_H = 30
-    #--------------------------------------------------------------------
+    #----------------------------------------------------------------------
     def __init__(self, parent, name_or_number, material=None, \
                  thickness=None, half_space=False) :        
         self.__mat = None        # Material of the layer, modified below
@@ -678,7 +537,7 @@ class Layer_Frame(QFrame) :
         self.edit_material_window = None
         # Initialization of the user interface
         self.__initUI()
-    #--------------------------------------------------------------------
+    #----------------------------------------------------------------------
     def __initUI(self) :
         align = Qt.AlignLeft|Qt.AlignVCenter
         # Size
@@ -725,7 +584,7 @@ class Layer_Frame(QFrame) :
         self.lay.addLayout(right, 1, 7)
         self.lay.addLayout(bot, 2, 0)
         self.setLayout(self.lay)
-    #--------------------------------------------------------------------
+    #----------------------------------------------------------------------
     def deleteWidget(self) :
         """Delete the object when the layer is removed."""
         for i in range(self.lay.count()-1,-1,-1) :
@@ -744,7 +603,7 @@ class Layer_Frame(QFrame) :
         self.mat_but = None
         self.del_but = None
         self.lay = None
-    #--------------------------------------------------------------------
+    #----------------------------------------------------------------------
     @property
     def mat_name(self) :
         if self.__mat is None : return self.UNDEFINED
@@ -760,7 +619,7 @@ class Layer_Frame(QFrame) :
         return self.__thck * 1e3 # m -> mm
     @property
     def hs(self) : return self.__hs
-    #--------------------------------------------------------------------
+    #----------------------------------------------------------------------
     @property
     def name(self) : return self.__name
     @name.setter
@@ -771,7 +630,7 @@ class Layer_Frame(QFrame) :
             self.__name = f"Layer {new_non}"
         else :
             print(f"Error : name '{new_non}' not understood")
-    #--------------------------------------------------------------------
+    #----------------------------------------------------------------------
     def update_width(self) :
         thck_mm = self.width_edit.value_in_mm
         if thck_mm is None :
@@ -780,17 +639,17 @@ class Layer_Frame(QFrame) :
             self.__thck = 1e-3*thck_mm
         self.geom_frm.set_modif(True)
         self.changedWidth.emit(1)
-    #--------------------------------------------------------------------
+    #----------------------------------------------------------------------
     def begin_edit_material(self) :
         self.geom_frm.mw.setEnabled(False)
         self.edit_material_window = Material_App(self)
         self.edit_material_window.show()
-    #--------------------------------------------------------------------
+    #----------------------------------------------------------------------
     def end_edit_material(self, material) :
         self.geom_frm.mw.setEnabled(True)
         if material is None : return # Cancel
         self.set_material(material)
-    #--------------------------------------------------------------------
+    #----------------------------------------------------------------------
     def set_material(self, material) :
         self.__mat = material
         self.geom_frm.update_list_of_materials()
@@ -803,14 +662,14 @@ class Layer_Frame(QFrame) :
         self.geom_frm.set_modif(True)
         # Global checking of the structure definition
         self.geom_frm.isCompletelyDefinedStructure(False)
-    #--------------------------------------------------------------------
+    #----------------------------------------------------------------------
     def __change_mat(self) :
         new_mat_name = self.mat_cmb.currentText()
         if new_mat_name == '' : return # Empty combo
         if new_mat_name == self.__prev_choice : return # No change
         self.__prev_choice = new_mat_name
         self.set_material( self.geom_frm.mat_of_name(new_mat_name) )
-    #--------------------------------------------------------------------
+    #----------------------------------------------------------------------
     def update_combo(self, list_of_mat) :
         previous_choice = self.mat_cmb.currentText()
         if self.__hs :
@@ -818,7 +677,7 @@ class Layer_Frame(QFrame) :
         self.mat_cmb.clear()
         self.mat_cmb.addItems(list_of_mat)
         self.mat_cmb.setCurrentText(previous_choice)
-    #--------------------------------------------------------------------
+    #----------------------------------------------------------------------
     def args(self) :
         """Parameters to rebuild a new instance."""
         if "Layer " in self.__name :
@@ -845,7 +704,7 @@ class pos_label(QFrame):
     FONTSIZE = 9
     FONTNAME = "Arial"
     TEXTCOLOR = "color: rgb(0,0,160)"
-    #--------------------------------------------------------------------
+    #----------------------------------------------------------------------
     def __init__(self, name="z"):
         """name must be a single letter."""
         QFrame.__init__(self)
@@ -858,7 +717,7 @@ class pos_label(QFrame):
         self.unit = QLabel(self)
         self.unit.setText(" mm")
         self.__initUI()
-    #--------------------------------------------------------------------
+    #----------------------------------------------------------------------
     def __initUI(self) :
         self.setContentsMargins(0,0,0,0)
         self.lay.setContentsMargins(0,0,0,0)
@@ -879,7 +738,7 @@ class pos_label(QFrame):
             lbl.setStyleSheet(self.TEXTCOLOR)
             lbl.setFixedSize(n*self.W_by_CHAR, self.H)
             lbl.setAlignment(align)
-    #--------------------------------------------------------------------
+    #----------------------------------------------------------------------
     def deleteWidget(self) :
         """Delete the object when the layer is removed."""
         for i in range(self.lay.count()-1,-1,-1) :
@@ -895,7 +754,7 @@ class pos_label(QFrame):
         self.value_edit = None
         self.unit = None
         self.lay = None        
-    #--------------------------------------------------------------------
+    #----------------------------------------------------------------------
     @property
     def value_in_mm(self) :
         return self.__value_mm
@@ -904,15 +763,15 @@ class pos_label(QFrame):
         try : self.__value_mm = float(val)
         except : self.__value_mm = None
         self.__update_value(read=False)
-    #--------------------------------------------------------------------
+    #----------------------------------------------------------------------
     def setEnabled(self, ok=True) :
         self.value_edit.setEnabled(ok)
-    #--------------------------------------------------------------------
+    #----------------------------------------------------------------------
     def setName(self, new_name) :
         """new_name must be a single letter."""
         if isinstance(new_name, str) and len(new_name) == 1 :
             self.name.setText(new_name+" ")
-    #--------------------------------------------------------------------
+    #----------------------------------------------------------------------
     def __update_value(self, read=True) :
         emit = False
         if read and self.value_edit.isModified() :
