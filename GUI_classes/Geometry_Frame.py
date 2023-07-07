@@ -1,4 +1,4 @@
-# Version 0.84 - 2023, June 29
+# Version 0.84 - 2023, July 7
 # Copyright (Eric Ducasse 2020)
 # Licensed under the EUPL-1.2 or later
 # Institution:  I2M / Arts & Metiers ParisTech
@@ -19,7 +19,7 @@ if __name__ == "__main__" :
     import TraFiC_init
 from MaterialEdit import Material_App
 from MaterialClasses import *
-from USMultilayeredPlate import USMultilayeredPlate as USMP
+from USMultilayerPlate import USMultilayerPlate as USMP
 from Small_Widgets import QVLine, QHLine
 #++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 class Geometry_Frame(QWidget):
@@ -118,7 +118,7 @@ class Geometry_Frame(QWidget):
     def set_modif(self, true_false) :
         self.__modif = true_false
         self.mw.update_statusBar()
-    #----------------------------------------------------------------------    
+    #----------------------------------------------------------------------
     @property
     def shortpath(self) :
         file_path = self.structure_file_path  
@@ -288,7 +288,7 @@ class Geometry_Frame(QWidget):
     #----------------------------------------------------------------------
     def insertLayer(self, lay_idx): 
         self.__layers[1].del_but.setEnabled(True)
-        self.__layers[1].del_but.setStyleSheet(Layer_Frame.TEXTCOLOR)               
+        self.__layers[1].del_but.setStyleSheet(Layer_Frame.TEXTCOLOR)   
         delete_layers = self.__deleteLayers(lay_idx)
         self.__rebuildLayers([(None,None,None,False)]+delete_layers)
         self.set_modif(True)  
@@ -451,7 +451,7 @@ class Geometry_Frame(QWidget):
         txt = "\n".join(rows)
         #------------------------------------------------------------------
         layer_data, materials, mat_ths, mat_bhs = \
-                    USMP.import_from_text(txt, raised_errors=False)
+                   USMP.import_elements_from_text(txt, raised_errors=False)
         if isinstance(layer_data, bool) : # necessary False
             return False, materials
         #!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!

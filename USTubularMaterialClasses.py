@@ -1,4 +1,4 @@
-# Version 1.2 - 2019, December, 6
+# Version 1.21 - 2023, July, 5
 # Author : Eric Ducasse (coll. Aditya Krishna)
 # License : CC-BY-NC
 # Institution :  I2M / Arts & Metiers ParisTech
@@ -24,6 +24,8 @@ class USTubularMat :
     def __init__(self,material,angles,USset=None) :
         self.__initial_mat = material
         self.__mat = material # by default, for fluid and radial T.I.E.
+        self.__IES = None # For "Isotropic Elastic Solid" case (saving
+                          #   in file)
         self.__angles = angles
         self.__nbpw = None # Number of Partial Waves in each direction
         self.__Eta = None # i * Radial wave numbers of Partial Waves
@@ -42,7 +44,13 @@ class USTubularMat :
     def initial_material(self) : return self.__initial_mat
     @property
     def mat(self) : return self.__mat
+    @property
+    def mat_diff_IES(self) :
+        if self.__IES is None : return self.__mat
+        else : return self.__IES
     def _set_mat(self,material) : self.__mat = material
+    def _set_IES_mat(self, material) :
+        self.__IES = material
     @property
     def angles(self) : return self.__angles
     @property
@@ -185,7 +193,7 @@ class USTubularFluid(USTubularMat) :
         self._set_Eta(np.sqrt( K2 + S2/m.c**2 ))
     def field_components(self,r,r0,S2,K,N=None) :
         shp = S2.shape
-        FC = np.zeros( shp+(4,2), dtype = np.complex)
+        FC = np.zeros( shp+(4,2), dtype = np.complex128)
         # (Ur,Ua,Uz,Srr=-P),(Outgoing,Ingoing)
         Eta_r,dr,iK = self.Eta*r, r-r0, 1.0j*K
         # Outgoing waves:
@@ -236,19 +244,20 @@ class USTubularFluid(USTubularMat) :
         return np.zeros_like(U[...,3])
     
 #===========================================================================
-class USTubularTransverselyIsotropicElastic(USTubularMat) :
+class USTubularTransverselyIsotropicElastic( USTubularMat ) :
     """ US Vertical Transversely Isotropic Elastic Solid (with the symmetry
         axis #1) in the radial direction """
-    def __init__(self,material,USset=None) :
-        USTubularMat.__init__(self,material,None,USset)
+    def __init__(self, material, USset=None ) :
+        USTubularMat.__init__(self, material, None, USset )
         self._set_nb_pw(3) # number of partial waves in each direction
-        if isinstance(material,IsotropicElasticSolid) :
-            self._set_mat(material.export())
+        if isinstance(material, IsotropicElasticSolid ) :
+            self._set_IES_mat( material )
+            self._set_mat( material.export() )
         self.__idx_k_eq_0 = None # indexes for which k == 0
         self.__idx_k_ne_0 = None # indexes for which k != 0
         # Coefficients for Saa,Szz,Saz
         ani = self.mat.export()
-        T = np.array([[0,-1,0],[1,0,0],[0,0,0]],dtype=np.float)
+        T = np.array( [ [0,-1,0], [1,0,0], [0,0,0] ], dtype=np.float64)
         invL = np.linalg.inv(ani.lol)
         ML,NL = ani.mol@invL,ani.nol@invL
         MLM,MLN,NLM,NLN = ML@ani.lom,ML@ani.lon,NL@ani.lom,NL@ani.lon
@@ -365,7 +374,7 @@ class USTubularTransverselyIsotropicElastic(USTubularMat) :
     #-------------------------------------
     def field_components(self,r,r0,S2,K,N=None) :
         shp = S2.shape
-        FC = np.zeros( shp+(6,6), dtype = np.complex)
+        FC = np.zeros( shp+(6,6), dtype = np.complex128)
         # (Ur,Ua,Uz,Srr,Sra,Srz),(Outgoing,Ingoing)
         dr = r - r0
         if N is None : # Axisymmetrical

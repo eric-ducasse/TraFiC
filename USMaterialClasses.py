@@ -1,4 +1,4 @@
-# Version 1.6 - 2020, November, 18
+# Version 1.61 - 2023, July, 3rd
 # Copyright (Eric Ducasse 2020)
 # Licensed under the EUPL-1.2 or later
 # Institution :  I2M / Arts & Metiers ParisTech
@@ -6,7 +6,7 @@
 # ====== Initialization ====================================================
 if __name__ == "__main__" : from TraFiC_init import *
 # ====== Material Classes ==================================================
-from MaterialClasses import  *
+from MaterialClasses import *
 # ====== Numerical tools ===================================================
 import numpy as np
 from numpy import sqrt, exp, pi, sin, cos, log, array, meshgrid, multiply
@@ -21,9 +21,12 @@ class staticproperty(property):
 class USMat :
     """Virtual mother class of all classes"""
     __ListOfOrMat = dict()
-    def __init__(self,material,angles,USset=None) :
+    __2powm20 = 2**-20
+    def __init__(self, material, angles, USset=None) :
         self.__initial_mat = material
         self.__mat = material # by default, for fluid and vertical T.I.E.
+        self.__IES = None # For "Isotropic Elastic Solid" case (saving
+                          #   in file)
         self.__angles = angles
         self.__nbpw = None # Number of Partial Waves in each direction
         self.__Kz = None # Wave numbers of Partial Waves
@@ -39,38 +42,44 @@ class USMat :
     def initial_material(self) : return self.__initial_mat
     @property
     def mat(self) : return self.__mat
-    def _set_mat(self,material) : self.__mat = material
+    @property
+    def mat_diff_IES(self) :
+        if self.__IES is None : return self.__mat
+        else : return self.__IES
+    def _set_mat(self, material) : self.__mat = material
+    def _set_IES_mat(self, material) :
+        self.__IES = material
     @property
     def angles(self) : return self.__angles
     @property
     def nb_pw(self) :
         """ Number of partial waves in each direction."""
         return self.__nbpw
-    def _set_nb_pw(self,nb) : self.__nbpw = nb
+    def _set_nb_pw(self, nb) : self.__nbpw = nb
     @property
     def Kz(self) : return self.__Kz
-    def _set_Kz(self,Kz) : self.__Kz = Kz
+    def _set_Kz(self, Kz) : self.__Kz = Kz
     @property
     def P(self) : return self.__P
-    def _set_P(self,P) : self.__P = P   
+    def _set_P(self, P) : self.__P = P   
     @property
     def MMprod(self) : return self.__MMprod
-    def _set_MMprod(self,MMprod) : self.__MMprod = MMprod   
+    def _set_MMprod(self, MMprod) : self.__MMprod = MMprod   
     @property
     def MVprod(self) : return self.__MVprod
-    def _set_MVprod(self,MVprod) : self.__MVprod = MVprod  
+    def _set_MVprod(self, MVprod) : self.__MVprod = MVprod  
     @property
     def nMBytes(self) :
         if self.Kz is None : # and self.P is None too
             return 0.0
         else :
-            return 2**-20*(self.Kz.nbytes + self.P.nbytes) 
+            return USMat.__2powm20*(self.Kz.nbytes + self.P.nbytes) 
     @property
     def nBytes_max_per_value(self) :
-        nb = 2*self.nb_pw*16  # Kz vector contaning np.complex128
-        nb += 6*2*self.nb_pw*16  # Polarization matrix
+        nb  = self.nb_pw*224   # Kz vector containing np.complex128
+             # 224 = 2*16*(1+6)  and polarization matrix
         return nb
-    def update(self,S,Kx,Ky=None) :
+    def update(self, S, Kx, Ky=None) :
         """ Should not be called """
         print("Error : USMat::update called by a "+\
               "'{}' instance".format(type(self).__name__))
@@ -150,7 +159,7 @@ class USMat :
             return np.einsum("jkl,ijkl->ijk",CSxx,U)
             
 #===========================================================================
-def USMaterial(material,angles=None,USset=None) :
+def USMaterial(material, angles=None, USset=None) :
     """ Angles : (phi=0.0, theta=0.0, alpha=None) for anisotropy;
                  (theta=0.0, phi=0.0) for transversely isotropy
                         (if theta = 90°, the value of phi does not matter).
@@ -163,21 +172,21 @@ def USMaterial(material,angles=None,USset=None) :
         LEOM = []
     materials = [e.initial_material for e in LEOM]
     # isotropic cases
-    if isinstance(material,Fluid) :
+    if isinstance(material, Fluid) :
         if material in materials : # existing USFluid instance
-             return LEOM[materials.index(material)]
-        return USFluid(material,USset) # creating a new USFluid instance
-    if isinstance(material,IsotropicElasticSolid) :
+             return LEOM[ materials.index(material)] 
+        return USFluid(material, USset) # creating a new USFluid instance
+    if isinstance(material, IsotropicElasticSolid) :
         if material in materials : # existing USTIE instance
              return LEOM[materials.index(material)]
-        return USTIE(material,USset) # creating a new USTIE instance
+        return USTIE(material, USset) # creating a new USTIE instance
     # other cases neading angles
     Langles = [e.angles for e in LEOM]
     if angles == None : angles = [0.0,0.0]
     else :
         da = 0.1
         angles = [ round(a/da)*da for a in angles ]
-    if isinstance(material,TransverselyIsotropicElasticSolid) :
+    if isinstance(material, TransverselyIsotropicElasticSolid) :
         # two angles only : theta and alpha (if theta != 0)
         if angles[0] == 0.0 : # Vertical Symmetry Axis
             for no,(m,a) in enumerate(zip(materials,Langles)) :
@@ -185,15 +194,15 @@ def USMaterial(material,angles=None,USset=None) :
                     if a == None : 
                         return LEOM[no]
             # no similar material found; creating a new USMaterial instance
-            return USTIE(material,USset)
+            return USTIE(material, USset)
         else : # Anisotropic case
-            for no,(m,a) in enumerate(zip(materials,Langles)) :
+            for no,(m,a) in enumerate( zip(materials, Langles) ) :
                 if m == material : # same material
                     if a != None :
                         if a[0] == angles[0] and a[1] == angles[1] : 
                             return LEOM[no]
         return USAniE(material,angles,USset)
-    if isinstance(material,AnisotropicElasticSolid) :
+    if isinstance(material, AnisotropicElasticSolid) :
         # three angles : phi, theta and alpha (if theta != 0)
         phi,theta = angles[:2]
         for no,(m,a) in enumerate(zip(materials,Langles)) :
@@ -209,10 +218,10 @@ def USMaterial(material,angles=None,USset=None) :
 #===========================================================================
 class USFluid(USMat) :
     """ US Fluid """
-    def __init__(self,material,USset=None) :
-        USMat.__init__(self,material,None,USset)
+    def __init__(self, material, USset=None) :
+        USMat.__init__(self, material, None, USset)
         self._set_nb_pw(1) # number of partial waves in each direction
-    def update(self,S2,K,K2,Q=None) :
+    def update(self, S2, K, K2, Q=None) :
         """ S2, Kx, Ky and other arrays have same dimensions """
         # Initialisations
         m = self.mat
@@ -262,11 +271,12 @@ class USFluid(USMat) :
 class USTIE(USMat) :
     """ US Vertical Transversely Isotropic Elastic Solid (with the symmetry
         axis #1) in the z-direction """
-    def __init__(self,material,USset=None) :
-        USMat.__init__(self,material,None,USset)
+    def __init__(self, material, USset=None) :
+        USMat.__init__(self, material, None, USset)
         self._set_nb_pw(3) # number of partial waves in each direction
-        if isinstance(material,IsotropicElasticSolid) :
-            self._set_mat(material.export())
+        if isinstance(material, IsotropicElasticSolid) :
+            self._set_IES_mat( material )
+            self._set_mat( material.export() )
         m = self.mat
         cs = m.c13/m.c33
         cii = 1j*(cs*m.c13 - m.c11)
@@ -292,7 +302,7 @@ class USTIE(USMat) :
         self.__CSxy_Ky = VZ.copy()
         self.__CSxy_Ky[0] = -1j*m.c66
         
-    def update(self,S2,K,K2,Q=None) :
+    def update(self, S2, K, K2, Q=None) :
         """ S2, K, K2 and other arrays have same dimensions """
         if Q is None : # 2D
             self.__Kx = K[0,:].copy()
@@ -371,19 +381,19 @@ class USTIE(USMat) :
             self.P[:,:,:,2::3,3:5] = P4[:,:,:,1::2,2:]
         return
         
-    def sigmaXX(self,U,Vkx,Vky=None) :
+    def sigmaXX(self, U, Vkx, Vky=None ) :
         """Returns the stress Sxx, from the 6-dimensional field U.
            Needs the horizontal wavenumbers Vkx [, Vky]."""
         return USMat._sigmaHor(self.__CSxx_0, self.__CSxx_Kx, \
                                self.__CSxx_Ky, U, Vkx, Vky)
     
-    def sigmaYY(self,U,Vkx,Vky=None) :
+    def sigmaYY(self, U, Vkx, Vky=None ) :
         """Returns the stress Syy, from the 6-dimensional field U.
            Needs the horizontal wavenumbers Vkx [, Vky]."""
         return USMat._sigmaHor(self.__CSyy_0, self.__CSyy_Kx, \
                                self.__CSyy_Ky, U, Vkx, Vky)
         
-    def sigmaXY(self,U,Vkx,Vky=None) :
+    def sigmaXY(self, U, Vkx, Vky=None ) :
         """Returns the stress Sxy, from the 6-dimensional field U.
            Needs the horizontal wavenumbers Vkx [, Vky]."""
         return USMat._sigmaHor(self.__CSxy_0, self.__CSxy_Kx, \
@@ -392,11 +402,11 @@ class USTIE(USMat) :
 #===========================================================================
 class USAniE(USMat) :
     """ US Anisotropic Elastic Solid """
-    def __init__(self,material,angles,USset=None) :
+    def __init__(self, material, angles, USset=None ) :
         """ angles : (phi, beta, alpha) in degrees """
-        USMat.__init__(self,material,angles,USset)
+        USMat.__init__(self, material, angles, USset )
         self._set_nb_pw(3) # number of partial waves in each direction
-        if isinstance(material,AnisotropicElasticSolid) :
+        if isinstance(material, AnisotropicElasticSolid) :
             self._set_mat(material.rotate(*angles))
         else : # Transversely Isotropic Elastic Solid
             theta, alpha = angles
@@ -455,7 +465,7 @@ class USAniE(USMat) :
         self.__CSyy_Ky = VZ.copy()
         self.__CSyy_Ky[:3] = CSyU_Ky[1,:]
 
-    def update(self,S2,Kx,Kx2,Ky=None,Ky2=None,Kxy=None) :
+    def update(self, S2, Kx, Kx2, Ky=None, Ky2=None, Kxy=None) :
         """ S2, Kx, Ky and other arrays have same dimensions """
         if Ky is None : # 2D
             self._set_MMprod("ijkl,ijlm->ijkm")
@@ -473,19 +483,19 @@ class USAniE(USMat) :
         self._set_Kz(K)
         self._set_P(P)
         
-    def sigmaXX(self,U,Vkx,Vky=None) :
+    def sigmaXX(self, U, Vkx, Vky=None ) :
         """Returns the stress Sxx, from the 6-dimensional field U.
            Needs the horizontal wavenumbers Vkx [, Vky]."""
         return USMat._sigmaHor(self.__CSxx_0, self.__CSxx_Kx, \
                                self.__CSxx_Ky, U, Vkx, Vky)
     
-    def sigmaYY(self,U,Vkx,Vky=None) :
+    def sigmaYY(self, U, Vkx, Vky=None ) :
         """Returns the stress Syy, from the 6-dimensional field U.
            Needs the horizontal wavenumbers Vkx [, Vky]."""
         return USMat._sigmaHor(self.__CSyy_0, self.__CSyy_Kx, \
                                self.__CSyy_Ky, U, Vkx, Vky)
         
-    def sigmaXY(self,U,Vkx,Vky=None) :
+    def sigmaXY(self, U, Vkx, Vky=None ) :
         """Returns the stress Sxy, from the 6-dimensional field U.
            Needs the horizontal wavenumbers Vkx [, Vky]."""
         return USMat._sigmaHor(self.__CSxy_0, self.__CSxy_Kx, \

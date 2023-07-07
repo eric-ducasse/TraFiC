@@ -1,4 +1,4 @@
-# Version 1.71 - 2023, June, 29
+# Version 1.71 - 2023, July, 7
 # Copyright (Eric Ducasse 2020)
 # Licensed under the EUPL-1.2 or later
 # Institution :  I2M / Arts & Metiers ParisTech
@@ -36,7 +36,7 @@ class USLayer :
         msg += " ({} partial waves)".format(self.npw)
         return msg
 #===========================================================================
-class USMultilayeredPlate :
+class USMultilayerPlate :
     """ US multilayered plate containing layers, each layer characterized by
         a thickness and an oriented material."""
     THS = "Upper Half-Space"
@@ -45,14 +45,17 @@ class USMultilayeredPlate :
     WALL = "[ Rigid Wall ]"
     HS_CONDITIONS = ["vacuum", "wall"]
     UNDEFINED = "(Undefined)"
-    DLINE = 60*"=" # Double horizontal line for text files
-    SLINE = 60*"-" # Simple horizontal line for text files
+    LINESIZE = 80
+    DLINE = LINESIZE*"=" # Double horizontal line for text files
+    SLINE = LINESIZE*"-" # Simple horizontal line for text files
+    STARS = LINESIZE*"*" # Line of stars
+    TWOPOWM20 = 2**-20
     #-----------------------------------------------------------------------
     def __init__(self, thickness, material, angles=None) :
         """Creates a monolayer plate in Vacuum."""
-        usmat = USMaterial(material,angles,self)
+        usmat = USMaterial(material, angles, self)
         self.__Lusm = [usmat] # List of US materials
-        if isinstance(usmat,USAniE) :
+        if isinstance(usmat, USAniE) :
             self.__ani = True
             self.__iso = False
         else :
@@ -72,7 +75,7 @@ class USMultilayeredPlate :
         self.__Vky = None # Vector of Ky values
         self.__ths = None # Top Half-Space (z<0)
         self.__bhs = None # Bottom Half-Space (z>zmax=self.Z[-1])
-    #--------------------------------------------------------
+    #-----------------------------------------------------------------------
     @property
     def dim(self) : return self.__dim
     @property
@@ -116,7 +119,7 @@ class USMultilayeredPlate :
         for usm in self.__Lusm :
             mbs += usm.nMBytes
         if self.M is not None :
-            mbs += 2**-20*self.M.nbytes
+            mbs += self.TWOPOWM20*self.M.nbytes
         return mbs    
     @property
     def nBytes_max_per_value(self) :
@@ -132,7 +135,7 @@ class USMultilayeredPlate :
         for usm in self.__Lusm :
             npw += 2*usm.nb_pw
         return npw
-    #--------------------------------------------------------
+    #-----------------------------------------------------------------------
     def appendLayer(self, thickness, material, angles=None) :
         new_usm = USMaterial(material,angles,self)
         new_layer = USLayer(thickness,new_usm)
@@ -153,7 +156,7 @@ class USMultilayeredPlate :
         if self.__Vs is not None : # Started computation
             Vs,Vkx,Vky = self.__Vs,self.__Vkx,self.__Vky
             self.update(Vs,Vkx,Vky,usmat=mat_to_update)
-    #--------------------------------------------------------
+    #-----------------------------------------------------------------------
     def setTopHalfSpace(self, material, angles=None) :
         """material is either a medium or None (vacuum) or 'Rigid Wall'."""
         if material is None : # dropping Top Half-Space
@@ -209,7 +212,7 @@ class USMultilayeredPlate :
             if self.__Vs is not None : # Started computation
                 Vs,Vkx,Vky = self.__Vs,self.__Vkx,self.__Vky
                 self.update(Vs,Vkx,Vky,usmat=mat_to_update)
-    #--------------------------------------------------------            
+    #-----------------------------------------------------------------------
     def setBottomHalfSpace(self, material, angles=None) :
         """material is either a medium or None (vacuum) or 'Rigid Wall'."""
         if material is None : # dropping Bottom Half-Space
@@ -262,8 +265,8 @@ class USMultilayeredPlate :
             if self.__Vs is not None : # Started computation
                 Vs,Vkx,Vky = self.__Vs,self.__Vkx,self.__Vky
                 self.update(Vs,Vkx,Vky,usmat=mat_to_update)
-    #--------------------------------------------------------   
-    def update(self,Vs,Vkx,Vky=None,usmat="All",buildM=True) :
+    #-----------------------------------------------------------------------
+    def update(self, Vs, Vkx, Vky=None, usmat="All", buildM=True) :
         if (self.__Vs is not Vs) or (self.__Vkx is not Vkx) or \
            (self.__Vky is not Vky) : # detected changes
             usmat="All"
@@ -308,7 +311,7 @@ class USMultilayeredPlate :
         # Global matrix
         if buildM : self.rebuildM(forced=True)
         else : self.clearM()
-    #--------------------------------------------------------   
+    #-----------------------------------------------------------------------
     def clearSK(self) :
         """Clears all US parameters. Useful to release memory."""
         self.__Vs = None
@@ -316,7 +319,7 @@ class USMultilayeredPlate :
         self.__Vky = None
         self.__M = None
         for usm in self.__Lusm : usm.clearSK()
-    #--------------------------------------------------------   
+    #-----------------------------------------------------------------------
     def rebuildM(self,forced=False) :
         """rebuild the M array."""
         if self.__M is not None and not forced :
@@ -334,28 +337,28 @@ class USMultilayeredPlate :
         up_layer = self.layers[0]
         usm = up_layer.usm
         FC = usm.fieldComponents(-up_layer.h,0.0)
-        if self.__ths is None : # No Top Half-Space 
-            if up_layer.npw == 6 : # Vacuum/Solid  (3 equations)                
+        if self.__ths is None : # No Top Half-Space
+            if up_layer.npw == 6 : # Vacuum/Solid  (3 equations)
                 self.__M[...,:3,:6] = FC[...,3:,:]
-            else : # Vacuum/Fluid, up_layer.npw == 2 (1 equation : Szz=0)                            
+            else : # Vacuum/Fluid, up_layer.npw == 2 (1 equation : Szz=0)
                 self.__M[...,0,:2] = FC[...,5,:]
         elif self.__ths == "wall" :
-            # Wall/Fluid, up_layer.npw == 2 (1 equation : Uz=0)                            
+            # Wall/Fluid, up_layer.npw == 2 (1 equation : Uz=0)
             self.__M[...,0,:2] = FC[...,2,:]
         elif self.__ths.nb_pw == 3 : # Solid
             FCths = self.__ths.fieldComponents(0.0,0.0)
-            if up_layer.npw == 6 : # Solid/Solid  (6 equations)              
+            if up_layer.npw == 6 : # Solid/Solid  (6 equations)
                 self.__M[...,:6,:3] = -FCths[...,:3]
                 self.__M[...,:6,3:9] = FC 
-            else : # Solid/Fluid, up_layer.npw == 2 (4 equations)             
+            else : # Solid/Fluid, up_layer.npw == 2 (4 equations)
                 self.__M[...,:4,:3] = -FCths[...,-4:,:3]
                 self.__M[...,:4,3:5] = FC[...,-4:,:]
         else : # Fluid, self.__ths.nb_pw == 1 
             FCths = self.__ths.fieldComponents(0.0,0.0)
-            if up_layer.npw == 6 : # Fluid/Solid  (4 equations)              
+            if up_layer.npw == 6 : # Fluid/Solid  (4 equations)
                 self.__M[...,:4,0] = -FCths[...,-4:,0]
                 self.__M[...,:4,1:7] = FC[...,-4:,:] 
-            else : # Fluid/Fluid, up_layer.npw == 2 (2 equations)             
+            else : # Fluid/Fluid, up_layer.npw == 2 (2 equations)
                 self.__M[...,:2,0] = -FCths[...,2::3,0]
                 self.__M[...,:2,1:3] = FC[...,2::3,:]
         # ++++++ Interface at z = zmax ++++++
@@ -365,10 +368,10 @@ class USMultilayeredPlate :
         if self.__bhs is None : # No Bottom Half-Space
             if down_layer.npw == 6 : # Solid/Vacuum            
                 self.__M[...,-3:,-6:] = -FC[...,3:,:]
-            else : # Fluid/Vacuum, down_layer.npw == 2  (Sz=0)                            
+            else : # Fluid/Vacuum, down_layer.npw == 2  (Sz=0)
                 self.__M[...,-1,-2:] = -FC[...,5,:]
         elif self.__bhs == "wall" :
-            # Fluid/Wall, down_layer.npw == 2  (Uz=0)                            
+            # Fluid/Wall, down_layer.npw == 2  (Uz=0)
             self.__M[...,-1,-2:] = -FC[...,2,:]
         elif self.__bhs.nb_pw == 3 : # Solid
             FCbhs = self.__bhs.fieldComponents(0.0,0.0)
@@ -412,19 +415,19 @@ class USMultilayeredPlate :
             cmin,cmil = cmil,cmax
             rmin = rmax
         return
-    #--------------------------------------------------------   
+    #-----------------------------------------------------------------------
     def clearM(self) :
         """Clears only the M array. Useful to release memory."""
         self.__M = None
         print("Warning: be careful to use the 'rebuildM' method "+\
               "if necessary.")
-    #--------------------------------------------------------
+    #-----------------------------------------------------------------------
     def field(self,z,Vc) :
         """Deprecated: use ``fields(z,Vc,"Stroh vector",output="array")''.
         """
         # Compatibility with previous versions
         return fields(self,z,Vc,"Stroh vector",output="array")
-    #--------------------------------------------------------
+    #-----------------------------------------------------------------------
     def fields(self,z,Vc,wanted="all",output = "list", tol_pos=1e-9) :
         """Returns arrays (ns,nx[,ny]) of displacements and stresses
            at the vertical position z. Vc is the array of the
@@ -453,13 +456,13 @@ class USMultilayeredPlate :
         elif wanted == "Stroh vector" :
             wanted = ("Ux","Uy","Uz","Sxz","Syz","Szz")
         elif isinstance(wanted,str) :
-            msg = "USMultilayeredPlate.fields :: unrecognized\n" + \
+            msg = "USMultilayerPlate.fields :: unrecognized\n" + \
                   "value '{}' for wanted".format(wanted)
             raise ValueError(msg)
         else :
             for F in wanted :
                 if F not in choices :
-                    msg = "USMultilayeredPlate.fields :: unrecognized\n"+\
+                    msg = "USMultilayerPlate.fields :: unrecognized\n"+\
                            "value '{}' in {} for wanted".format(F,wanted)
                     raise ValueError(msg)       
         if (self.__Vs is None) or (self.__Vkx is None) :
@@ -529,11 +532,11 @@ class USMultilayeredPlate :
         for i,F in enumerate(flds) :
             big_array[...,i] = F
         return big_array
-    #---------------------------------------------------------------------
+    #-----------------------------------------------------------------------
     def copy(self) :
         first_layer = self.layers[0]
         mat0 = first_layer.usm.mat
-        new_plate = USMultilayeredPlate(first_layer.h,mat0)
+        new_plate = USMultilayerPlate(first_layer.h,mat0)
         for layer in self.layers[1:] :
             mat = layer.usm.mat
             new_plate.appendLayer(layer.h,mat)
@@ -544,9 +547,11 @@ class USMultilayeredPlate :
             mat = self.bottomUSmat.mat
             new_plate.setBottomHalfSpace(mat)
         return new_plate
-    #---------------------------------------------------------------------
+    #-----------------------------------------------------------------------
     def __str__(self) :
-        msg = 70*"*"+"\n"
+        stars = USMultilayerPlate.STARS
+        msg = stars + "\n"
+        dbb = 18*"="
         msg += "{}-layered plate of thickness {:.2f} mm and with " + \
               "{} partial waves :"
         msg = msg.format(len(self.layers),1e3*self.Z[-1],self.dim)
@@ -558,19 +563,19 @@ class USMultilayeredPlate :
         else :
             npw = self.__ths.nb_pw
             ths = self.__ths.mat.name + \
-                     " ({} partial upgoing wave{})".format(npw,\
-                     "s" if npw > 1 else "")
-        msg += "\n Top Half-Space: {}".format(ths)
+                     f" ({npw} partial upgoing wave" + \
+                     f"{'s' if npw > 1 else ''})"
+        msg += f"\n Top Half-Space: {ths}"
         noeq0 = 0
         for n,(noeq1,lay,z) in enumerate(zip(self.R,self.layers,self.Z)) :
-            msg += "\n========== Interface #{} ({} equations) " + \
-                   "at z = {:.2f} mm =========="
-            msg = msg.format(n,noeq1-noeq0,1e3*z)
+            msg += "\n" + dbb + \
+                   f" Interface #{n} ({noeq1-noeq0} equations) " + \
+                   f"at z = {1e3*z:.2f} mm " + dbb
             noeq0 = noeq1
             msg += "\n "+lay.__str__(n)
-        msg += "\n========== Interface #{} ({} equations) " + \
-                   "at z = {:.2f} mm =========="
-        msg = msg.format(n+1,self.dim-noeq0,1e3*self.Z[-1])
+        msg += "\n" + dbb + \
+               f" Interface #{n+1} ({self.dim-noeq0} equations) " + \
+               f"at z = {1e3*self.Z[-1]:.2f} mm " + dbb
         if self.__bhs is None :
             bhs = "Vacuum"
         elif self.__bhs == "wall" :
@@ -581,9 +586,9 @@ class USMultilayeredPlate :
                      " ({} partial downgoing wave{})".format(npw,\
                      "s" if npw > 1 else "")
         msg += "\n Bottom Half-Space: {}".format(bhs)
-        msg += "\n"+70*"*"
+        msg += "\n"+stars
         return msg
-    #---------------------------------------------------------------------
+    #-----------------------------------------------------------------------
     def write_in_file(self, file_path=None) :
         """Plate parameters saved in a text file.
            If file_path is None, the text is simply returned."""
@@ -593,7 +598,7 @@ class USMultilayeredPlate :
         layer_data = []
         for lay in self.layers :
             w_mm = 1e3*lay.h
-            material = lay.usm.mat
+            material = lay.usm.mat_diff_IES
             if material not in materials :
                 materials.append(material)
             w = f"Width: {w_mm:.3f} mm"
@@ -625,12 +630,12 @@ class USMultilayeredPlate :
         if file_path is None :
             return text        
         try :
-            with open(file_path, "w") as strm :
+            with open(file_path, "w", encoding="utf8") as strm :
                 strm.write(text)
         except Exception as err :
-            msg = f"USMultilayeredPlate.write_in_file\n'{err}'"
+            msg = f"USMultilayerPlate.write_in_file\n'{err}'"
             raise ValueError(msg)
-    #---------------------------------------------------------------------
+    #-----------------------------------------------------------------------
     @staticmethod
     def export_to_text(layer_data, materials, ths, bhs) :
         """ Export data of a multilayer plate to text.
@@ -640,8 +645,8 @@ class USMultilayeredPlate :
             ths: top half-space (name, "[ Vacuum ]" or "[ Wall ]")
             bhs: bottom half-space
         """
-        sline = USMultilayeredPlate.SLINE
-        dline = USMultilayeredPlate.DLINE
+        sline = USMultilayerPlate.SLINE
+        dline = USMultilayerPlate.DLINE
         # Voir GeometryFrame.is_completely_defined()
         text = dline
         nb_lay, nb_mat = len(layer_data), len(materials)
@@ -662,9 +667,9 @@ class USMultilayeredPlate :
                 text += mat.tosave() + sline + "\n"
             text += materials[-1].tosave() + dline + "\n"
         return text
-    #---------------------------------------------------------------------
+    #-----------------------------------------------------------------------
     @staticmethod
-    def import_from_text(text, raised_errors=True) :  
+    def import_elements_from_text(text, raised_errors=True) :  
         """ Import data from a multilayer plate to text.
             returns (layer_data, materials, ths, bhs)   
             layer_data: pairs [ w_m (float), material ]
@@ -672,19 +677,19 @@ class USMultilayeredPlate :
             ths: top half-space (material, VACUUM, WALL or UNDEFINED)
             bhs: bottom half-space
         """
-        error_msg = "USMultilayeredPlate.import_from_text :: error:"
-        VACUUM = USMultilayeredPlate.VACUUM
-        WALL = USMultilayeredPlate.WALL
+        error_msg = "USMultilayerPlate.import_elements_from_text :: error:"
+        VACUUM = USMultilayerPlate.VACUUM
+        WALL = USMultilayerPlate.WALL
         HS_CONDITIONS = [VACUUM, WALL]
-        UNDEFINED = USMultilayeredPlate.UNDEFINED
-        THS = USMultilayeredPlate.THS
-        BHS = USMultilayeredPlate.BHS
+        UNDEFINED = USMultilayerPlate.UNDEFINED
+        THS = USMultilayerPlate.THS
+        BHS = USMultilayerPlate.BHS
         # Warning: note the .lower()
         rows = [ r.strip().lower() for r in text.split("\n") ]
         layer_data, materials = [],[]
         # Number of layers and materials
         searching = True
-        nb_layer, nb_material = None,None
+        nb_layer, nb_material = None, None
         for r,row in enumerate(rows) :
             if "plate with" in row :
                 searching = False
@@ -723,7 +728,7 @@ class USMultilayeredPlate :
             return False, msg, None, None
         # Material Dictionary
         materials = dict()
-        for beg,end in zip(idx_mat[:-1],idx_mat[1:]) :
+        for beg,end in zip( idx_mat[:-1], idx_mat[1:] ) :
             txt = "\n".join(rows[beg:end])
             try :
                 mat = ImportMaterialFromText(txt)
@@ -761,12 +766,12 @@ class USMultilayeredPlate :
                 try :
                     number = int(row.split(":")[0].split()[1])
                 except Exception as err :
-                    msg = error_msg + f"\n\t[{r}]{row}\n\t{err}."                    
+                    msg = error_msg + f"\n\t[{r}]{row}\n\t{err}."
                     if raised_errors : raise ValueError(msg)
                     return False, msg, None, None
                 if number != num_lay :
                     msg = error_msg + f"\n\t[{r}]{row}\n\t" + \
-                          f"Layer Number should be {num_lay}."                   
+                          f"Layer Number should be {num_lay}."
                     if raised_errors : raise ValueError(msg)
                     return False, msg, None, None
                 w_row,m_row = rows[r+1:r+3]
@@ -779,7 +784,7 @@ class USMultilayeredPlate :
                         val = float(val)
                     except Exception as err :
                         msg = error_msg + \
-                              f"\n\t[{r+1}]{w_row}\n\t{err}."                   
+                              f"\n\t[{r+1}]{w_row}\n\t{err}."
                         if raised_errors : raise ValueError(msg)
                         return False, msg, None, None
                     if unit == "mm" :
@@ -799,20 +804,20 @@ class USMultilayeredPlate :
                         mat_name = m_row.split(":")[-1].strip().title()
                     except Exception as err :
                         msg = error_msg + \
-                              f"\n\t[{r+2}]{m_row}\n\t{err}."                  
+                              f"\n\t[{r+2}]{m_row}\n\t{err}."
                         if raised_errors : raise ValueError(msg)
                         return False, msg, None, None
                     if mat_name in materials.keys() :
                         mat = materials[mat_name]
                     else :
                         msg = error_msg + f"\n\t[{r+1}]{m_row}\n\t" + \
-                              f"unknown material '{mat_name}'."                  
+                              f"unknown material '{mat_name}'."
                         if raised_errors : raise ValueError(msg)
                         return False, msg, None, None
                 # Updating of layer_data:
                 layer_data.append( [w_m, mat] )
         if num_lay != nb_layer : 
-            msg = "\n\t{num_lay} layers found instead of {nb_layer}."                  
+            msg = "\n\t{num_lay} layers found instead of {nb_layer}."   
             if raised_errors : raise ValueError(msg)
             return False, msg, None, None
         # Bottom Half-Space
@@ -823,7 +828,7 @@ class USMultilayeredPlate :
             try :
                 bhs = row.split(":")[1].strip().title()
             except Exception as err :
-                msg = error_msg + f"\n\t{BHS}\n\t{err}."                  
+                msg = error_msg + f"\n\t{BHS}\n\t{err}."
                 if raised_errors : raise ValueError(msg)
                 return False, msg, None, None
         if bhs in HS_CONDITIONS :
@@ -831,14 +836,14 @@ class USMultilayeredPlate :
         elif bhs in materials.keys() :
             bhs = materials[bhs]
         else :
-            msg = error_msg + f"\n\t{BHS}: unknown '{bhs}' material."                  
+            msg = error_msg + f"\n\t{BHS}: unknown '{bhs}' material."  
             if raised_errors : raise ValueError(msg)
             return False, msg, None, None
         return layer_data, materials, ths, bhs
-    #---------------------------------------------------------------------
+    #-----------------------------------------------------------------------
     @staticmethod
     def import_from_file(file_path) :  
-        """ Returns a USMultilayeredPlate instance from a text file.
+        """ Returns a USMultilayerPlate instance from a text file.
         """
         error_msg = f"File '{file_path}'\ndoes not seem to " + \
                      "correspond to a multilayer plate:"
@@ -854,18 +859,24 @@ class USMultilayeredPlate :
         if not ok :
             msg = error_msg + f"\n\tencoding error: not in {pos_enc}."
             raise ValueError(msg)
-        #
+        return USMultilayerPlate.import_from_text(text)
+ #-----------------------------------------------------------------------
+    @staticmethod
+    def import_from_text(text) :  
+        """ Returns a USMultilayerPlate instance from text.
+        """
+        # Read data from text
         layer_data, material, ths, bhs = \
-                    USMultilayeredPlate.import_from_text(text)
+                    USMultilayerPlate.import_elements_from_text(text)
         # First layer
         w_m, mat = layer_data[0]
-        new_plate = USMultilayeredPlate(w_m, mat)
+        new_plate = USMultilayerPlate(w_m, mat)
         # additional layer(s)
         for w_m, mat in layer_data[1:] :
             new_plate.appendLayer(w_m, mat)
         # Top half-space        
-        VACUUM = USMultilayeredPlate.VACUUM
-        WALL = USMultilayeredPlate.WALL
+        VACUUM = USMultilayerPlate.VACUUM
+        WALL = USMultilayerPlate.WALL
         if ths == VACUUM :
             pass
         elif ths == WALL :
@@ -882,7 +893,7 @@ class USMultilayeredPlate :
 
         return new_plate
         
-#========= Tests =========================================================
+#========= Tests ===========================================================
 if __name__ == "__main__" :
     np.set_printoptions(precision=2)
     water = Fluid({"rho":1000.0,"c":1500.0},"Water")
@@ -891,11 +902,11 @@ if __name__ == "__main__" :
     crbepx = TransverselyIsotropicElasticSolid({"rho":1560.0,\
                    "c11":1.4e10, "c12": 8.0e9, "c33": 8.7e10,\
                    "c13": 9.0e9, "c44": 4.7e9}, "Carbon-Epoxy")
-    plate1 = USMultilayeredPlate(0.0015,alu)
-# 3D Test for one set of values s,kx,ky
-    # s,kx,ky = 100.0+20.0j, 80.0, 60.0
-    # plate1.update([s],[kx],[ky])
-    # print(plate1.M[0,0,0])
+    plate1 = USMultilayerPlate(0.0015,alu)
+    # 3D Test for one set of values s,kx,ky
+    s,kx,ky = 100.0+20.0j, 80.0, 60.0
+    plate1.update([s],[kx],[ky])
+    print(plate1.M[0,0,0])
     plate1.appendLayer(0.002,crbepx,(90.0,45.0))
     plate1.appendLayer(0.0005,water)
     plate1.setBottomHalfSpace(water)
@@ -903,63 +914,51 @@ if __name__ == "__main__" :
     test_text = plate1.write_in_file()
     print(test_text)
     # 'import_from_text' static method
-    LLY, MAT, THS, BHS = USMultilayeredPlate.import_from_text(test_text)
-    print("Layers :", [(1e3*w, m.name) for w,m in LLY] )
+    plate2 = USMultilayerPlate.import_from_text(test_text)
+    print("test_text == plate2.write_in_file() =>", \
+           test_text == plate2.write_in_file())
     # 'import_from_file' static method
     plate_pth = "Data/Plates/test_23-06-09.txt"
-    read_plate = USMultilayeredPlate.import_from_file(plate_pth)
+    read_plate = USMultilayerPlate.import_from_file(plate_pth)
     print(f"Plate imported from 'test_23-06-09.txt' file:\n{read_plate}")
     # Comparison with modes
-    from Modes_Monolayer_Plate import *
-    from numpy.linalg import eigvals
-    import matplotlib.pyplot as plt
-    Kmax,Fmax = 3000.0,2e6
-    vecK = np.linspace(0.0,Kmax,151)
-    vecS = 2j*pi*np.linspace(0.0,Fmax,201) + 1.0e-3
-    plate1.update(vecS,vecK)
-    xmin,xmax = 5.0e-7*vecS[0].imag/pi,5.0e-7*vecS[-1].imag/pi
-    ymin,ymax = 1.0e-3*vecK[0],1.0e-3*vecK[-1]
-##    VPmin = abs(eigvals(plate1.M)).min(axis=-1).transpose()
-##    VP = -10*np.log(VPmin)/np.log(10)
-##    plt.figure("Smallest eigenvalue",figsize=(18,12))
-##    plt.imshow(VP,extent=(xmin,xmax,ymin,ymax),aspect="auto",
-##               origin="lower",interpolation="none",
-##               vmin=VP[:,20:].min(),vmax=VP[:,20:].max())
-##    plt.colorbar()
-    vecKmod = np.linspace(0.0,Kmax,61)
-##    modes = ModesMonolayerPlate(alu,0.002,40,vecKmod)
-##    for no in range(10) :
-##        plt.plot(1e-6*modes.F[:,no],1e-3*modes.K,"+",color=(1,0.6,1),
-##                 markeredgewidth=1.2,markersize=8)
-##    plt.xlabel(r"Frequency $f$ [$MHz$]",fontsize=14)
-##    plt.ylabel(r"Horizontal wavenumber $k$ [$mm^{-1}$]",fontsize=14)
-##    plt.grid()
-##    for c in [alu.cL, alu.cT, water.c ] :
-##        pente = 2e3*pi/c
-##        plt.plot([0,max(xmax,ymax/pente)],[0,max(ymax,xmax*pente)],"w--")
-##    plt.xlim(xmin,xmax)
-##    plt.ylim(ymin,ymax)        
-##    plt.show()
-    angcrbepx = (90.0,30.0)
-    plate2 = USMultilayeredPlate(0.001,crbepx,angcrbepx)
-    #plate2 = USMultilayeredPlate(0.0007,crbepx,angcrbepx)
-    #plate2.appendLayer(0.0003,crbepx,angcrbepx)
-    print(plate2)
-    plate2.update(vecS,vecK)
-    VPmin2 = abs(eigvals(plate2.M)).min(axis=-1).transpose()
-    VP2 = -10*np.log(VPmin2)/np.log(10)
-    plt.figure("Smallest eigenvalue 2",figsize=(18,12))
-    plt.imshow(VP2,extent=(xmin,xmax,ymin,ymax),aspect="auto",
-               origin="lower",interpolation="none",
-               vmin=VP2[:,20:].min(),vmax=VP2[:,20:].max())
-    plt.colorbar()
-    modes2 = ModesMonolayerPlate(crbepx.rotate(*angcrbepx),0.001,40,vecKmod)
-    for no in range(10) :
-        plt.plot(1e-6*modes2.F[:,no],1e-3*modes2.K,"+",color=(1,0.6,1),
-                 markeredgewidth=1.2,markersize=8)
-    plt.xlabel(r"Frequency $f$ [$MHz$]",fontsize=14)
-    plt.ylabel(r"Horizontal wavenumber $k$ [$mm^{-1}$]",fontsize=14)
-    plt.grid()
-    plt.xlim(xmin,xmax)
-    plt.ylim(ymin,ymax)        
-    plt.show()
+    comparison_with_modes = False
+    if comparison_with_modes :
+        from Modes_Monolayer_Plate import *
+        from numpy.linalg import eigvals
+        import matplotlib.pyplot as plt
+        from mpl_toolkits.axes_grid1 import make_axes_locatable
+        Kmax,Fmax = 3000.0,2e6
+        vecK = np.linspace(0.0,Kmax,151)
+        vecS = 2j*pi*np.linspace(0.0,Fmax,201) + 1.0e-3
+        plate1.update(vecS,vecK)
+        xmin,xmax = 5.0e-7*vecS[0].imag/pi,5.0e-7*vecS[-1].imag/pi
+        ymin,ymax = 1.0e-3*vecK[0],1.0e-3*vecK[-1]
+        vecKmod = np.linspace(0.0,Kmax,61)
+        angcrbepx = (90.0,30.0)
+        plate2 = USMultilayerPlate(0.001,crbepx,angcrbepx)
+        print(plate2)
+        plate2.update(vecS,vecK)
+        VPmin2 = abs(eigvals(plate2.M)).min(axis=-1).transpose()
+        VP2 = -10*np.log(VPmin2)/np.log(10)
+        fig = plt.figure("Smallest eigenvalue", figsize=(14,7.5))
+        fig.subplots_adjust(0.05, 0.08, 0.97, 0.98)
+        ax = fig.subplots(1,1)
+        im = ax.imshow(VP2, extent=(xmin,xmax,ymin,ymax), aspect="auto",
+                       origin="lower", interpolation="none",
+                       vmin=VP2[:,20:].min(), vmax=VP2[:,20:].max())        
+        dvd = make_axes_locatable(ax)
+        cax = dvd.append_axes('right', size='1%', pad=0.06)
+        plt.colorbar(im, cax=cax, extend='both')
+        modes2 = ModesMonolayerPlate( crbepx.rotate(*angcrbepx), 0.001, \
+                                      40, vecKmod)
+        for no in range(10) :
+            ax.plot( 1e-6*modes2.F[:,no], 1e-3*modes2.K, "+", \
+                     color=(1,0.6,1),  markeredgewidth=1.2, \
+                     markersize=8)
+        ax.set_xlabel(r"Frequency $f$ [$MHz$]",fontsize=14)
+        ax.set_ylabel(r"Horizontal wavenumber $k$ [$mm^{-1}$]",fontsize=14)
+        ax.grid()
+        ax.set_xlim(xmin,xmax)
+        ax.set_ylim(ymin,ymax)        
+        plt.show()
