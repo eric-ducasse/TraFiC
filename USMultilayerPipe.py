@@ -1,4 +1,4 @@
-# Version 1.2 - 2023, July, 7
+# Version 1.21 - 2023, July, 11
 # Copyright (Eric Ducasse 2020)
 # Licensed under the EUPL-1.2 or later
 # Institution :  I2M / Arts & Metiers ParisTech
@@ -79,7 +79,8 @@ class USMultilayerPipe :
     STARS = USMultilayerPlate.STARS # Line of stars
     TWOPOWM20 = 2**-20
     #----------------------------------------------------------------------
-    def __init__(self, r_min, r_max, material, angles=None ) :
+    def __init__(self, r_min, r_max, material, angles=None, \
+                 verbose=False ) :
         """Creates a monolayer pipe (or cylinder) in Vacuum."""
         if r_min < 0.0 or r_max < 0.0 or r_max <= r_min :
             msg =  "USMultilayerPipe builder :: Error:\n\t" + \
@@ -115,6 +116,10 @@ class USMultilayerPipe :
             self.__rows = [] # Row indexes
             self.__cols = [0] # Column indexes
             self.setInnerCylinder(material)
+        self.__verb = verbose
+    #----------------------------------------------------------------------
+    def __prt(self, *args) :
+        self.__verb : print(*args)
     #----------------------------------------------------------------------
     @property
     def dim(self) : return self.__dim
@@ -343,11 +348,12 @@ class USMultilayerPipe :
     #----------------------------------------------------------------------
     def rebuildM(self,forced=False) :
         """rebuild the M array."""
+        prt = self.__prt
         if self.__M is not None and not forced :
-            print("M has already been updated.")
+            prt("M has already been updated.")
             return
         if (self.__Vs is None) or (self.__Vk is None) :
-            print("M cannot be updated because S or K are not defined.")
+            prt("M cannot be updated because S or K are not defined.")
             return
         axisym = self.__Vn is None # Axisymmetrical/3D
         self.__M = np.zeros( self.shape, dtype=complex )
@@ -501,8 +507,8 @@ class USMultilayerPipe :
     def clearM(self) :
         """Clears only the M array. Useful to release memory."""
         self.__M = None
-        print("Warning: be careful to use the 'rebuildM' method "+\
-              "if necessary.")
+        self.__prt("Warning: be careful to use the 'rebuildM' method" + \
+                   " if necessary.")
     #----------------------------------------------------------------------
     def field(self, r, Vc) :
         """Deprecated:

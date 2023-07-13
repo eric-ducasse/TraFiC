@@ -1,4 +1,4 @@
-# Version 1.71 - 2023, July, 7
+# Version 1.72 - 2023, July, 11
 # Copyright (Eric Ducasse 2020)
 # Licensed under the EUPL-1.2 or later
 # Institution :  I2M / Arts & Metiers ParisTech
@@ -51,7 +51,7 @@ class USMultilayerPlate :
     STARS = LINESIZE*"*" # Line of stars
     TWOPOWM20 = 2**-20
     #-----------------------------------------------------------------------
-    def __init__(self, thickness, material, angles=None) :
+    def __init__(self, thickness, material, angles=None, verbose = False) :
         """Creates a monolayer plate in Vacuum."""
         usmat = USMaterial(material, angles, self)
         self.__Lusm = [usmat] # List of US materials
@@ -75,6 +75,10 @@ class USMultilayerPlate :
         self.__Vky = None # Vector of Ky values
         self.__ths = None # Top Half-Space (z<0)
         self.__bhs = None # Bottom Half-Space (z>zmax=self.Z[-1])
+        self.__verb = verbose
+    #-----------------------------------------------------------------------
+    def __prt(self, *args) :
+        self.__verb : print(*args)
     #-----------------------------------------------------------------------
     @property
     def dim(self) : return self.__dim
@@ -101,6 +105,10 @@ class USMultilayerPlate :
     def C(self) : return tuple(self.__C)
     @property
     def R(self) : return tuple(self.__R)
+    @property
+    def n_cols(self) : return tuple(self.__C)
+    @property
+    def n_rows(self) : return tuple(self.__R)
     @property
     def Vs(self) :
         if self.__Vs is None : return tuple()
@@ -322,11 +330,12 @@ class USMultilayerPlate :
     #-----------------------------------------------------------------------
     def rebuildM(self,forced=False) :
         """rebuild the M array."""
+        prt = self.__prt
         if self.__M is not None and not forced :
-            print("M has already been updated.")
+            prt("M has already been updated.")
             return
         if (self.__Vs is None) or (self.__Vkx is None) :
-            print("M cannot be updated because S or Kx are not defined.")
+            prt("M cannot be updated because S or Kx are not defined.")
             return
         twoD = self.__Vky is None # 2D/3D
         self.__M = np.zeros( self.__shp, dtype=complex )
@@ -419,8 +428,8 @@ class USMultilayerPlate :
     def clearM(self) :
         """Clears only the M array. Useful to release memory."""
         self.__M = None
-        print("Warning: be careful to use the 'rebuildM' method "+\
-              "if necessary.")
+        self.__prt("Warning: be careful to use the 'rebuildM' method" + \
+                   " if necessary.")
     #-----------------------------------------------------------------------
     def field(self,z,Vc) :
         """Deprecated: use ``fields(z,Vc,"Stroh vector",output="array")''.
