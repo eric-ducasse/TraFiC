@@ -27,7 +27,7 @@ Python 3.10 with modules <tt><b>numpy</b></tt>, <tt><b>scipy</b></tt>, <tt><b>ma
    - Mac/Linux: 
    > <tt><b>(trafic_env)...> idlex </b></tt>  
    - Windows:  
-   > <tt><b>(trafic_env)...> cd <i><Miniconda3_path> </i> \envs\trafic_env</b></tt>  
+   > <tt><b>(trafic_env)...> cd <i><Miniconda3_path></i>\envs\trafic_env</b></tt>  
    > <tt><b>(trafic_env)...> python Scripts\idlex.py </b></tt>  
 1. To launch <b>Jupyter notebook</b>:
    > <tt><b>(base)...> conda activate trafic_env</b></tt>   
