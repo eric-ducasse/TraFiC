@@ -1,4 +1,4 @@
-# Version 1.51 - 2022, October, 23
+# Version 1.52 - 2023, July, 18
 # Copyright (Eric Ducasse 2020)
 # Licensed under the EUPL-1.2 or later
 # Institution :  I2M / Arts & Metiers ParisTech
@@ -11,6 +11,7 @@ from numpy.fft import fft,ifft,fft2,ifft2
 class Space1DGrid :
     """A 1D grid in space, with the corresponding grid in the wavenumbers 
        domain, and the associated FFT tools."""
+    #--------------------------------------------------------------------------
     def __init__(self,nb,step=1.0) :
         """'nb' is the number of discretization points.
            'step' is the discretization step in space."""
@@ -31,6 +32,8 @@ class Space1DGrid :
     def nx(self) : 
         """Number of points."""
         return self.__nx
+    @property
+    def shape(self) : return (self.__nx,)
     @property
     def step(self) : 
         """Discretization step in space."""
@@ -73,12 +76,18 @@ class Space1DGrid :
         return self.step*self.numbers
     @property
     def X(self) : 
+        """Space values in the "sorted" representation."""
+        ### Warning: changed at 2023, July, 17. Can create bugs.
+        return self.step*self.numbers
+    @property
+    def Xc(self) : 
         """Space values in the "centered" representation."""
         return self.step*np.arange(self.n_min,self.n_max+1)
     @property
     def g_range(self) : 
         """Range for graphics (imshow)."""
-        return [self.v_min-0.5*self.step,self.v_max+0.5*self.step]
+        dxs2 = 0.5*self.step
+        return np.array( [self.v_min - dxs2, self.v_max + dxs2 ] )
     @property
     def dk(self) :
         """Discretization step in wavenumbers domain."""
@@ -100,48 +109,48 @@ class Space1DGrid :
         """ = self.wavenumber_values."""
         return self.wavenumber_values
     #++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-    def __check(self,array,axis) :
+    def __check(self, array, axis) :
         if array.shape[axis] != self.nb :
             msg = ("Space1DGrid :: Incompatible shape! {} is required "+\
                    "instead of {}").format(self.nb,array.shape[axis])
             raise ValueError(msg)
         return True
-    def sort2cent(self,array,axis=0) :
+    def sort2cent(self, array, axis=0) :
         """From "sorted" representation to "centered" representation."""
         if not self.__check(array,axis) : return None
         return np.roll(array,self.n_max-1,axis=axis)        
-    def cent2sort(self,array,axis=0) :
+    def cent2sort(self, array, axis=0) :
         """From "centered" representation to "sorted" representation."""
-        if not self.__check(array,axis) : return None
-        return np.roll(array,1-self.n_max,axis=axis)        
+        if not self.__check(array, axis) : return None
+        return np.roll(array, 1-self.n_max, axis=axis)        
     def __str__(self) :
         fmt = "1D grid of {} points, from {:.3e} to {:.3e} (step: {:.3e})"
         return fmt.format(self.nb,self.v_min,self.v_max,self.step)
-    def fft(self,array,axis=0,centered=False) :
+    def fft(self, array, axis=0, centered=False) :
         """Returns a numerical estimation of the Fourier transform
            (integrate(f(x) exp(i k x) dx). 'centered' indicates
            if coordinates are centered or not in both domains."""
-        if not self.__check(array,axis) : return None
-        if centered : array = self.cent2sort(array,axis=axis)
-        fft_array = ifft(array,axis=axis)*(self.nb*self.step)
-        if centered : return self.sort2cent(fft_array,axis=axis)
+        if not self.__check(array, axis) : return None
+        if centered : array = self.cent2sort(array, axis=axis)
+        fft_array = ifft(array, axis=axis) * (self.nb*self.step)
+        if centered : return self.sort2cent(fft_array, axis=axis)
         return fft_array
-    def ifft(self,array,axis=0,centered=False) :
+    def ifft(self, array, axis=0, centered=False) :
         """Returns a numerical estimation of the Fourier transform
            ((1/2pi)*integrate(f(k) exp(-i k x) dk).
            'centered' indicates if coordinates are centered
            or not in both domains."""
         if not self.__check(array,axis) : return None
-        if centered : array = self.cent2sort(array,axis=axis)
-        ifft_array = fft(array,axis=axis)/(self.nb*self.step)
-        if centered : return self.sort2cent(ifft_array,axis=axis)
+        if centered : array = self.cent2sort(array, axis=axis)
+        ifft_array = fft(array, axis=axis) / (self.nb*self.step)
+        if centered : return self.sort2cent(ifft_array, axis=axis)
         return ifft_array    
-    def derivative(self,array,i,axis=0,centered=False) :
+    def derivative(self, array, i, axis=0, centered=False) :
         """Returns a numerical estimation of the i-th derivative of
            the field associated to 'array'. axis corresponds to the
            variable position.""" 
-        if not self.__check(array,axis) : return None
-        if centered : array = self.cent2sort(array,axis=axis)
+        if not self.__check(array, axis) : return None
+        if centered : array = self.cent2sort(array, axis=axis)
         # Array index names for einsum
         array_indexes = ["-"]*len(array.shape)
         array_indexes[axis] = "i"            
@@ -168,7 +177,7 @@ class Space1DGrid :
                 print(msg)
             return new_array.real
     #++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-    def zero_padding(self,array,cz,axis=0,centered=False) :
+    def zero_padding(self, array, cz, axis=0, centered=False) :
         """Returns a (g_zp,array_zp) where g_zp is a Space1DGrid with a
            smaller step and array_zp is built from array."""
         TF_array = self.fft(array,axis=axis,centered=centered)
@@ -246,7 +255,13 @@ class Space2DGrid :
     @property
     def y_grid(self) : return self.__grid_y
     @property
-    def X(self) : return self.__grid_x.space_values
+    def X(self) :
+        """x values in the "sorted" representation.""" 
+        return self.__grid_x.space_values
+    @property
+    def Xc(self) :
+        """x values in the "centered" representation.""" 
+        return self.__grid_x.Xc
     @property
     def nx(self) : return self.__grid_x.nb
     @property
@@ -256,7 +271,13 @@ class Space2DGrid :
     @property
     def dx(self) : return self.__grid_x.step
     @property
-    def Y(self) : return self.__grid_y.space_values
+    def Y(self) : 
+        """y values in the "sorted" representation."""
+        return self.__grid_y.space_values
+    @property
+    def Yc(self) : 
+        """y values in the "centered" representation."""
+        return self.__grid_y.Xc
     @property
     def ny(self) : return self.__grid_y.nb
     @property
@@ -282,25 +303,25 @@ class Space2DGrid :
     @property
     def g_range(self) : 
         """Range for graphics (imshow)."""
-        return self.__grid_x.g_range + self.__grid_y.g_range
+        return np.append( self.__grid_x.g_range, self.__grid_y.g_range )
     #++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++        
-    def __check(self,array,axes) :
+    def __check(self, array, axes) :
         array_shape = (array.shape[axes[0]],array.shape[axes[1]])
         if array_shape != self.shape :
             print("Space2DGrid :: Incompatible shape!", self.shape,\
                   "is required instead of",array_shape)
             return False
         return True
-    def sort2cent(self,array,axes=(0,1)) :
+    def sort2cent(self, array, axes=[0,1]) :
             """From "sorted" representation to "centered" representation.
                axes[0] corresponds to y. axes[1] corresponds to x."""
-            new_array = self.__grid_x.sort2cent(array,axis=axes[1])
-            return self.__grid_y.sort2cent(new_array,axis=axes[0])
-    def cent2sort(self,array,axes=(0,1)) :
+            new_array = self.__grid_x.sort2cent(array, axis=axes[1])
+            return self.__grid_y.sort2cent(new_array, axis=axes[0])
+    def cent2sort(self, array, axes=[0,1]) :
             """From "centered" representation to "sorted" representation.
                axes[0] corresponds to y. axes[1] corresponds to x."""
-            new_array = self.__grid_x.cent2sort(array,axis=axes[1])
-            return self.__grid_y.cent2sort(new_array,axis=axes[0])
+            new_array = self.__grid_x.cent2sort(array, axis=axes[1])
+            return self.__grid_y.cent2sort(new_array, axis=axes[0])
     #++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
     def __str__(self) :
         fmt = "2D grid of (ny={})-by-(nx={}) points, with (x,y) in\n"+\
@@ -463,13 +484,13 @@ class Space2DGrid :
         else : # Real-valued array
             Re_max,Im_max = abs(array_zp.real).max(),abs(array_zp.imag).max()
             if Im_max > 1e-8*Re_max :
-                msg = "Space2DGrid.zero_padding :: Warning: non neglictible "+\
-                      "imaginary part of the obtained array."
+                msg = "Space2DGrid.zero_padding :: Warning: non " + \
+                      "neglictible imaginary part of the obtained array."
                 print(msg)
             return (g_zp,array_zp.real) 
-#++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++    
-    def plot(self,array,centered=False,show=False,height=8,\
-             fig_name=None,draw_axis=None,**kwargs) :
+#++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++    
+    def plot(self, array, centered=False, show=False, height=7,\
+             fig_name=None, draw_axis=None, **kwargs) :
         """Plot a 2d array on the 2d space grid. This plot can be drawn
            on an existing figure (real-valued and complex_valued arrays)
            or on an existing axis (real_valued array only).
@@ -539,7 +560,7 @@ class Space2DGrid :
         
 ###############################################################################
 if __name__ == "__main__" :
-    g2dt = Space2DGrid(8,6,0.25,0.2)
+    g2dt = Space2DGrid(8, 6, 0.25, 0.2)
     print(g2dt)
     A = np.zeros( g2dt.shape )
     A[1,2] = 1
@@ -552,27 +573,27 @@ if __name__ == "__main__" :
     MX,MY = g2dt.MX_MY
     field = np.exp(2j*(MX+2*MY))
     g2dt.plot(field)
-    g2dt.plot(2*abs(g2dt.fft(field)),height=5,fig_name="2D FFT",show=True)
-    g2dt.plot(field,colorbar=False,fig_name="Field without colorbar",\
+    g2dt.plot( 2*abs(g2dt.fft(field)), height=5, fig_name="2D FFT", show=True)
+    g2dt.plot(field, colorbar=False, fig_name="Field without colorbar", \
               show=True)
     # Drawing on existing axis
-    plt.figure("Figure with two subplots",figsize=(8,8))
-    ax1,ax2 = plt.subplot(2,1,1),plt.subplot(2,1,2)
-    ax1.plot(np.linspace(0,20,201),np.sin(np.linspace(0,20,201)),"m-")
+    plt.figure("Figure with two subplots", figsize=(7,7))
+    ax1,ax2 = plt.subplot(2,1,1), plt.subplot(2,1,2)
+    ax1.plot( np.linspace(0,20,201), np.sin(np.linspace(0,20,201)), "m-")
     ax1.grid()    
-    g2dt.plot(field.real,draw_axis=ax2)
+    g2dt.plot(field.real, draw_axis=ax2)
     plt.show()
     import numpy.random as rd
-    R = rd.normal(0,1,(3,g2dt.ny,g2dt.nx,2,2))
+    R = rd.normal(0, 1, (3,g2dt.ny,g2dt.nx,2,2))
     MX,MY = g2dt.MX_MY
-    R = np.einsum("lijmn,ij->lijmn",R,np.exp(-8*(MX**2+MY**2)))
-    g2dzp,R2dzp = g2dt.zero_padding(R,9,axes=(1,2))    
+    R = np.einsum("lijmn,ij->lijmn", R, np.exp(-8*(MX**2+MY**2)))
+    g2dzp,R2dzp = g2dt.zero_padding(R, 9, axes=(1,2))    
     from mpl_toolkits.mplot3d import Axes3D
-    fig = plt.figure("2D Zero-padding on Random Points",figsize=(9,8))
-    g = fig.gca(projection="3d")
-    g.plot(MX.flatten(),MY.flatten(),R[2,:,:,0,1].real.flatten(),'.b')
+    fig = plt.figure("2D Zero-padding on Random Points", figsize=(8,7))
+    ax = plt.subplot(1, 1, 1, projection="3d")
+    ax.plot(MX.flatten(), MY.flatten(), R[2,:,:,0,1].real.flatten(), '.b')
     MXzp,MYzp = g2dzp.MX_MY
-    g.plot(MXzp.flatten(),MYzp.flatten(),R2dzp[2,:,:,0,1].real.flatten(),\
-           '.r',markersize=1)
-    plt.subplots_adjust(left=0.02,right=0.98,bottom=0.02,top=0.98)
+    ax.plot(MXzp.flatten(), MYzp.flatten(), R2dzp[2,:,:,0,1].real.flatten(), \
+           '.r', markersize=1)
+    plt.subplots_adjust(left=0.02, right=0.98, bottom=0.02, top=0.98)
     plt.show()

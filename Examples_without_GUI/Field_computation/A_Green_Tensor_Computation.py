@@ -29,15 +29,15 @@ from TraFiC_utilities import now
 #=========================================================================
 # I.1) Input
 # Total duration of the simulation, in microseconds:
-duration_µs = 150.0
+duration_µs = 170.0
 # Delay such that the excitation signal can be centered at t = 0
-delay_µs = 25.0
+delay_µs = 30.0
 print(f"Time Interval [{-delay_µs:.2f}, " + \
       f"{duration_µs-delay_µs:.2f}] in µs")
 # Maximum frequency in MegaHertz:
 max_frequency_MHz = 1.25
 # Maximum distance between source(s) and observation point(s), in meters
-max_length_m = 0.9
+max_length_m = 1.0
 # Minimum wavelength in millimeters (x-direction)
 min_wavelength_mm = 1.0
 #+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++

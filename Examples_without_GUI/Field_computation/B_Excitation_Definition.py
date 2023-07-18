@@ -71,7 +71,7 @@ axF.set_xlim(-1e-8*tm_gd.f_max,1.02e-6*tm_gd.f_max)
 #plt.show()
 #+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 # II.2) Shape : ``smooth door function''
-transducer_width = 50.0e-3 # 50 mm
+transducer_width = 20.0e-3 # 20 mm
 smooth_width = 4.0e-3      #  4 mm
 def smooth_door(x, w=transducer_width, dw=smooth_width) :
     ax_L = np.sqrt(20)*(x+0.5*w)/dw
@@ -84,7 +84,7 @@ def smooth_door(x, w=transducer_width, dw=smooth_width) :
 # Space grid (1d)
 sp_gd = my_computation.space_grid
 # Values
-sd_val = smooth_door( sp_gd.X )
+sd_val = smooth_door( sp_gd.Xc )
 # Zero-padding
 szpg, sd_zp = sp_gd.zero_padding(sd_val, 9, centered=True)
 # Fourier Transform
@@ -102,9 +102,9 @@ fig_shp.subplots_adjust(0.06,0.08,0.94,0.94,0.25,0.4)
 axX.set_title("Shape function", **opt)
 axX.set_xlabel("Space $x$ [mm]", **opt)
 axX.set_ylabel("Shape values [a.u.]", **opt)
-axX.plot( 1e3*szpg.X, sd_zp, "-g")
-axX.plot( 1e3*sp_gd.X, sd_val, ".m")
-xmx_mm = 35.0
+axX.plot( 1e3*szpg.Xc, sd_zp, "-g")
+axX.plot( 1e3*sp_gd.Xc, sd_val, ".m")
+xmx_mm = 17.0
 axX.set_xlim( -xmx_mm, xmx_mm )
 axX.grid()
 axK.set_title("Spatial amplitude spectrum", **opt)
@@ -116,13 +116,13 @@ axK.grid()
 #+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 # II.3) Excitation:
 ##          XY_func(x,t) = smooth_door(x) Ncycle_pulse(t - d_by_x*x)
-delay_by_x = 2e-4 # 0.2 µs/mm
+delay_by_x = 6.7e-4 # 0.67 µs/mm
 def XY_func(x, t, d_by_x=delay_by_x) :
     return smooth_door(x)*Ncycle_pulse(t - d_by_x*x)
 x_range_mm = np.linspace(-xmx_mm, xmx_mm, 201 )
 dxs2 = 0.5 * (x_range_mm[1] - x_range_mm[0] )
 xmn_mm, xmx_mm = x_range_mm[0]-dxs2,x_range_mm[-1]+dxs2
-t_range_mus = np.linspace(-10.5, 12.5, 301 )
+t_range_mus = np.linspace(-13.0, 17.0, 501 )
 dts2 = 0.5 * (t_range_mus[1] - t_range_mus[0] )
 tmn_mus, tmx_mus = t_range_mus[0]-dts2,t_range_mus[-1]+dts2
 Xm,Ts = np.meshgrid(1e-3*x_range_mm, 1e-6*t_range_mus)
@@ -149,15 +149,15 @@ xbools = np.abs( sd_val )
 xbools = (xbools > epsilon*xbools.max())
 ix_min, ix_max = xbools.argmax(), nx - xbools[::-1].argmax()
 tbools = np.array( [ np.abs(Ncycle_pulse( \
-                             tm_gd.T - delay_by_x*sp_gd.X[ix_min] ) ),
+                             tm_gd.T - delay_by_x*sp_gd.Xc[ix_min] ) ),
                      np.abs(Ncycle_pulse( \
-                             tm_gd.T - delay_by_x*sp_gd.X[ix_max-1] ) )
+                             tm_gd.T - delay_by_x*sp_gd.Xc[ix_max-1] ) )
                     ] ).max(axis=0)
 tbools = (tbools > epsilon*tbools.max())
 nt = tm_gd.nt
 it_min, it_max = tbools.argmax(), nt - tbools[::-1].argmax()
 print(f"t range [{it_min}:{it_max}], x range [{ix_min}:{ix_max}]")
-MX,MT = np.meshgrid(sp_gd.X[ix_min:ix_max], tm_gd.T[it_min:it_max])
+MX,MT = np.meshgrid(sp_gd.Xc[ix_min:ix_max], tm_gd.T[it_min:it_max])
 tab_exc = XY_func(MX, MT).astype(np.float32)
 print("tab_exc.nbytes:", tab_exc.nbytes)
 #=========================================================================
