@@ -9,7 +9,7 @@ Python 3.10 with modules <tt><b>numpy</b></tt>, <tt><b>scipy</b></tt>, <tt><b>ma
     > <tt><b>(base)...> conda activate trafic_env</b></tt>  
 1. Such that the prompt becomes:  
    > <tt><b>(trafic_env)...></b></tt>
-1. Module installation:
+1. Module installations (<tt><b>PyQt5</b></tt> and other modules are automatically included by the following installations):
    > <tt><b>(trafic_env)...> conda install numpy -y </b></tt>  
    > <tt><b>(trafic_env)...> conda install scipy -y </b></tt>  
    > <tt><b>(trafic_env)...> conda install matplotlib -y </b></tt>   
