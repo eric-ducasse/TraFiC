@@ -1,4 +1,0 @@
-Name: Air
-Type: Fluid
-Density [mg/mm³]: 0.001300
-Speed of sound [mm/µs]: 3.4000000e-01

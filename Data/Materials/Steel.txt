@@ -1,6 +1,0 @@
-Name: Steel
-Type: Isotropic Elastic
-Density [kg.m^-3]: 7.90000E03
-Stiffnesses [Pa]
-c11: 2.800000E11
-c44: 8.000000E10

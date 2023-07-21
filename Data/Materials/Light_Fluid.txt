@@ -1,4 +1,0 @@
-Name: Light Fluid
-Type: Fluid
-Density [mg/mm³]: 0.700000
-Speed of sound [mm/µs]: 8.0000000e-01

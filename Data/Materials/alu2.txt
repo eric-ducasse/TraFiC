@@ -1,6 +1,0 @@
-Type : Isotropic Elastic Medium
-Name : Aluminum 2
-Density [kg.m^-3] : 2700.000
-Stiffnesses [Pa] (Lamé's Coefficients)
-c12 : 5.6634120e+10
-c44 : 2.5947000e+10

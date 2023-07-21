@@ -1,2 +1,0 @@
-Data/Results/test
-Examples_without_GUI/Field_computation/Results

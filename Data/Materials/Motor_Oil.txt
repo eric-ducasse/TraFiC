@@ -1,4 +1,0 @@
-Name: Motor Oil
-Type: Fluid
-Density [mg/mm³]: 0.870000
-Speed of sound [mm/µs]: 1.7400000e+00

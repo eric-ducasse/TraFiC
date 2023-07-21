@@ -1,4 +1,0 @@
-Name: Diesel Oil
-Type: Fluid
-Density [mg/mm³]: 0.800000
-Speed of sound [mm/µs]: 1.2500000e+00

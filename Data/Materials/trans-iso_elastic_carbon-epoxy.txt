@@ -1,9 +1,0 @@
-Name: Carbon-Epoxy Ud
-Type: Transversely Isotropic Elastic Medium
-Density [mg/mm³]: 1.420000
-Stiffnesses [GPa] 
-c12: 4.2000000e+00
-c66: 2.9000000e+00
-c33: 1.1500000e+02
-c13: 3.6000000e+00
-c44: 4.6000000e+00

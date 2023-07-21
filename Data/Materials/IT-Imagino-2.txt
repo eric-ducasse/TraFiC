@@ -1,9 +1,0 @@
-Type : Transversely Isotropic Elastic Medium
-Name : IT Imagino 2
-Density [kg.m^-3] : 800.000
-Stiffnesses [Pa] 
-c12 : 4.0000000e+09
-c66 : 8.0000000e+09
-c33 : 8.0000000e+10
-c13 : 8.0000000e+09
-c44 : 1.2000000e+10

@@ -1,6 +1,0 @@
-Name: Plexiglass
-Type: Isotropic Elastic Medium
-Density [mg/mm³]: 1.069000
-Stiffnesses [GPa] (Lamé's Coefficients)
-c12: 3.3000000e+00
-c44: 1.6000000e+00

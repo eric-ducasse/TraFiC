@@ -1,6 +1,0 @@
-Type : Isotropic Elastic Medium
-Name : Aluminum Aditya
-Density [kg.m^-3] : 2700.000
-Stiffnesses [Pa] (Lamé Coefficients)
-c12 : 3.9807692e+10
-c44 : 2.6538462e+10
