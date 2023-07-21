@@ -1,0 +1,6 @@
+Name: Glue
+Type: Isotropic Elastic
+Density [kg.m^-3]: 1.14e03
+Stiffnesses [Pa]
+c11: 4.42e09
+c44: 1.07e09

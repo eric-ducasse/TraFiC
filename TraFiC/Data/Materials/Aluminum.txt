@@ -1,0 +1,6 @@
+Name: Aluminum
+Type: Isotropic Elastic
+Density [kg.m^-3]: 2.780000E03
+Stiffnesses [Pa]
+c11: 1.120000E11
+c12: 5.800000E10
