@@ -1,0 +1,1 @@
+## Folder which contains GUI history files
