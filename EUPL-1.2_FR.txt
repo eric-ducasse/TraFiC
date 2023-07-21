@@ -1,5 +1,5 @@
-				LICENCE PUBLIQUE DE L'UNION EUROPÉENNE v. 1.2 
-				EUPL © Union européenne 2007, 2016
+			LICENCE PUBLIQUE DE L'UNION EUROPÉENNE v. 1.2 
+			EUPL © Union européenne 2007, 2016
 
 La présente licence publique de l'Union européenne («EUPL») s'applique à toute œuvre (telle que définie ci-dessous) fournie aux conditions prévues par la présente licence. Toute utilisation de l'œuvre autre que ce qu'autorise la présente licence est interdite (dans la mesure où pareille utilisation est couverte par un droit du titulaire des droits d'auteur sur l'œuvre). L'œuvre est fournie aux conditions prévues par la présente licence quand le donneur de licence (tel que défini ci-dessous) a placé la mention suivante immédiatement après la déclaration relative au droit d'auteur sur l'œuvre: 
                                    Sous licence EUPL

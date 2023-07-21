@@ -1,6 +1,6 @@
 # <span style="color:#0088BB"> <b>TraFiC</b> </span>
 The open source code <b>TraFiC</b> (for ``<u>Tr</u>ansient <u>Fi</u>eld <u>C</u>omputation'', <tt>EUPL-1.2</tt> License) has been developped <b>by Éric Ducasse</b> at the <b>Institute of Mechanics and Engineering of Bordeaux</b> since 2020.<br>
-It is entirely written in <b>Python 3</b>.<br>
+It is entirely written in <b>Python 3</b>.<br> 
 The main aim of this code is to provide simulation tools for:<br>
 ## <span style="color:#008800"> <b>ultrasonic wave propagation in multilayer structures of canonical shape (plates and circular pipes).</b> </span>
 Simulations are based on the <b>FFL method</b> initially used in geophysics and adapted to ultrasound propagation. The FFL method is described in:<br>
