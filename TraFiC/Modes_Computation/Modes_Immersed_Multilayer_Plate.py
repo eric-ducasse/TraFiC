@@ -1,4 +1,4 @@
-# Version 0.97 - 2022, September, 20
+# Version 0.98 - 2023, December, 18
 # Copyright (Eric Ducasse 2020)
 # Licensed under the EUPL-1.2 or later
 # Institution :  I2M / Arts & Metiers ParisTech
@@ -380,9 +380,9 @@ class FluidDiscretizedLayer(GeneralDiscretizedLayer) :
     def M0(self, K, Nu=0.0) :
         """Matrix of coefficients of w(z)."""
         if GeneralDiscretizedLayer.SPARSE :
-            M = sprs.lil_matrix( (self.N,self.N), dtype=np.complex)
+            M = sprs.lil_matrix( (self.N,self.N), dtype=np.complex128)
         else :
-            M = np.zeros( (self.N,self.N), dtype=np.complex)
+            M = np.zeros( (self.N,self.N), dtype=np.complex128)
         I,Ip1 = np.arange(0,self.N,2),np.arange(1,self.N,2)
         M[I,Ip1] = -1.0/self.material.rho
         M[Ip1,I] = self.material.rho*self.material.c**2*(K**2+Nu**2)
@@ -391,17 +391,17 @@ class FluidDiscretizedLayer(GeneralDiscretizedLayer) :
     def M1(self, K, Nu=0.0) :
         """Matrix of coefficients of w'(z) (zero for a fluid)."""
         if GeneralDiscretizedLayer.SPARSE :
-            M = sprs.lil_matrix( (self.N,self.N), dtype=np.complex)
+            M = sprs.lil_matrix( (self.N,self.N), dtype=np.complex128)
         else :
-            M = np.zeros( (self.N,self.N), dtype=np.complex)
+            M = np.zeros( (self.N,self.N), dtype=np.complex128)
         return M
     #--------------------------------------------------
     def M2(self, K, Nu=0.0) :
         """Matrix of coefficients of w''(z)."""
         if GeneralDiscretizedLayer.SPARSE :
-            M = sprs.lil_matrix( (self.N,self.N), dtype=np.complex)
+            M = sprs.lil_matrix( (self.N,self.N), dtype=np.complex128)
         else :
-            M = np.zeros( (self.N,self.N), dtype=np.complex)
+            M = np.zeros( (self.N,self.N), dtype=np.complex128)
         I,Ip1 = np.arange(0,self.N,2),np.arange(1,self.N,2)
         M[Ip1,I] = -self.material.rho*self.material.c**2
         return M   
@@ -411,9 +411,9 @@ class FluidDiscretizedLayer(GeneralDiscretizedLayer) :
     def N0(self, W, Nu=0.0) :
         """Matrix of coefficients of w(z)."""
         if GeneralDiscretizedLayer.SPARSE :
-            M = sprs.lil_matrix( (self.N,self.N), dtype=np.complex)
+            M = sprs.lil_matrix( (self.N,self.N), dtype=np.complex128)
         else :
-            M = np.zeros( (self.N,self.N), dtype=np.complex)
+            M = np.zeros( (self.N,self.N), dtype=np.complex128)
         I,Ip1 = np.arange(0,self.N,2),np.arange(1,self.N,2)
         M[I,Ip1] = 1.0
         M[Ip1,I] = Nu**2 - W**2/self.material.c**2
@@ -422,17 +422,17 @@ class FluidDiscretizedLayer(GeneralDiscretizedLayer) :
     def N1(self, W, Nu=0.0) :
         """Matrix of coefficients of w'(z) (zero for a fluid)."""
         if GeneralDiscretizedLayer.SPARSE :
-            M = sprs.lil_matrix( (self.N,self.N), dtype=np.complex)
+            M = sprs.lil_matrix( (self.N,self.N), dtype=np.complex128)
         else :
-            M = np.zeros( (self.N,self.N), dtype=np.complex)
+            M = np.zeros( (self.N,self.N), dtype=np.complex128)
         return M
     #--------------------------------------------------
     def N2(self, W, Nu=0.0) :
         """Matrix of coefficients of w''(z)."""
         if GeneralDiscretizedLayer.SPARSE :
-            M = sprs.lil_matrix( (self.N,self.N), dtype=np.complex)
+            M = sprs.lil_matrix( (self.N,self.N), dtype=np.complex128)
         else :
-            M = np.zeros( (self.N,self.N), dtype=np.complex)
+            M = np.zeros( (self.N,self.N), dtype=np.complex128)
         I,Ip1 = np.arange(0,self.N,2),np.arange(1,self.N,2)
         M[Ip1,I] = -1.0
         return M
@@ -442,9 +442,9 @@ class FluidDiscretizedLayer(GeneralDiscretizedLayer) :
     def P0(self, S) :
         """Matrix of coefficients of w(z)."""
         if GeneralDiscretizedLayer.SPARSE :
-            M = sprs.lil_matrix( (self.N,self.N), dtype=np.complex)
+            M = sprs.lil_matrix( (self.N,self.N), dtype=np.complex128)
         else :
-            M = np.zeros( (self.N,self.N), dtype=np.complex)
+            M = np.zeros( (self.N,self.N), dtype=np.complex128)
         rho = self.material.rho
         I,Ip1 = np.arange(0,self.N,2),np.arange(1,self.N,2)
         M[I,Ip1] = -1.0/rho
@@ -453,17 +453,17 @@ class FluidDiscretizedLayer(GeneralDiscretizedLayer) :
     def P1(self, S) :
         """Matrix of coefficients of w'(z) (zero for a fluid)."""
         if GeneralDiscretizedLayer.SPARSE :
-            M = sprs.lil_matrix( (self.N,self.N), dtype=np.complex)
+            M = sprs.lil_matrix( (self.N,self.N), dtype=np.complex128)
         else :
-            M = np.zeros( (self.N,self.N), dtype=np.complex)
+            M = np.zeros( (self.N,self.N), dtype=np.complex128)
         return M
     #--------------------------------------------------
     def P2(self, S) :
         """Matrix of coefficients of w''(z)."""
         if GeneralDiscretizedLayer.SPARSE :
-            M = sprs.lil_matrix( (self.N,self.N), dtype=np.complex)
+            M = sprs.lil_matrix( (self.N,self.N), dtype=np.complex128)
         else :
-            M = np.zeros( (self.N,self.N), dtype=np.complex)
+            M = np.zeros( (self.N,self.N), dtype=np.complex128)
         rho,c = self.material.rho,self.material.c
         sc = S*c
         if abs(sc-1) < 1e-8 : # Degenerate case
@@ -638,7 +638,7 @@ class SolidDiscretizedLayer(GeneralDiscretizedLayer) :
                 zero_matrix = np.zeros
                 matrix = np.array
             self.__O3 = lambda z,ZM=zero_matrix : \
-                        ZM( (3,3), dtype=np.complex)
+                        ZM( (3,3), dtype=np.complex128)
             self.__rho = lambda z : self.material.rho
             # Stresses coefficients in the x-direction
             self.__Cxx = lambda z,M=matrix : M(self.material.lol)
@@ -696,11 +696,11 @@ class SolidDiscretizedLayer(GeneralDiscretizedLayer) :
         """Matrix of coefficients of w(z)."""
         if GeneralDiscretizedLayer.SPARSE :
             M = sprs.block_diag( (self.n-1)* \
-                                 [sprs.eye(6,k=3,dtype=np.complex)], \
+                                 [sprs.eye(6,k=3,dtype=np.complex128)], \
                                  "lil")
         else :
             M = block_diag( *((self.n-1)* \
-                                 [np.eye(6,k=3,dtype=np.complex)]))
+                                 [np.eye(6,k=3,dtype=np.complex128)]))
         for i,z in enumerate(self.Z[1:-1]) :
             l = 6*i
             m,r = l+3,l+6
@@ -718,9 +718,9 @@ class SolidDiscretizedLayer(GeneralDiscretizedLayer) :
     def M1(self, K, Nu=0.0) :
         """Matrix of coefficients of w'(z)."""
         if GeneralDiscretizedLayer.SPARSE :
-            M = sprs.lil_matrix( (self.N,self.N), dtype=np.complex)
+            M = sprs.lil_matrix( (self.N,self.N), dtype=np.complex128)
         else :
-            M = np.zeros( (self.N,self.N), dtype=np.complex)
+            M = np.zeros( (self.N,self.N), dtype=np.complex128)
         for i,z in enumerate(self.Z[1:-1]) :
             l = 6*i
             m,r = l+3,l+6
@@ -738,9 +738,9 @@ class SolidDiscretizedLayer(GeneralDiscretizedLayer) :
     def M2(self, K, Nu=0.0) :
         """Matrix of coefficients of w''(z)."""
         if GeneralDiscretizedLayer.SPARSE :
-            M = sprs.lil_matrix( (self.N,self.N), dtype=np.complex)
+            M = sprs.lil_matrix( (self.N,self.N), dtype=np.complex128)
         else :
-            M = np.zeros( (self.N,self.N), dtype=np.complex)
+            M = np.zeros( (self.N,self.N), dtype=np.complex128)
         for i,z in enumerate(self.Z[1:-1]) :
             l = 6*i
             m,r = l+3,l+6
@@ -789,11 +789,11 @@ class SolidDiscretizedLayer(GeneralDiscretizedLayer) :
         """Matrix of coefficients of w(z)."""
         if GeneralDiscretizedLayer.SPARSE :
             M = sprs.block_diag( (self.n-1)* \
-                                 [sprs.eye(6,k=3,dtype=np.complex)], \
+                                 [sprs.eye(6,k=3,dtype=np.complex128)], \
                                  "lil")
         else :
             M = block_diag( *((self.n-1)* \
-                                 [np.eye(6,k=3,dtype=np.complex)]) )
+                                 [np.eye(6,k=3,dtype=np.complex128)]) )
         for i,z in enumerate(self.Z[1:-1]) :
             l = 6*i
             m,r = l+3,l+6
@@ -813,9 +813,9 @@ class SolidDiscretizedLayer(GeneralDiscretizedLayer) :
     def N1(self, W, Nu=0.0) :
         """Matrix of coefficients of w'(z)."""
         if GeneralDiscretizedLayer.SPARSE :
-            M = sprs.lil_matrix( (self.N,self.N), dtype=np.complex)
+            M = sprs.lil_matrix( (self.N,self.N), dtype=np.complex128)
         else :
-            M = np.zeros( (self.N,self.N), dtype=np.complex)      
+            M = np.zeros( (self.N,self.N), dtype=np.complex128)      
         for i,z in enumerate(self.Z[1:-1]) :
             l = 6*i
             m,r = l+3,l+6
@@ -833,9 +833,9 @@ class SolidDiscretizedLayer(GeneralDiscretizedLayer) :
     def N2(self, W, Nu=0.0) :
         """Matrix of coefficients of w''(z)."""
         if GeneralDiscretizedLayer.SPARSE :
-            M = sprs.lil_matrix( (self.N,self.N), dtype=np.complex)
+            M = sprs.lil_matrix( (self.N,self.N), dtype=np.complex128)
         else :
-            M = np.zeros( (self.N,self.N), dtype=np.complex)        
+            M = np.zeros( (self.N,self.N), dtype=np.complex128)        
         for i,z in enumerate(self.Z[1:-1]) :
             l = 6*i
             m,r = l+3,l+6
@@ -946,9 +946,9 @@ class SolidDiscretizedLayer(GeneralDiscretizedLayer) :
     def P0(self, S) :
         """Matrix of coefficients of w(z)."""
         if GeneralDiscretizedLayer.SPARSE :
-            M = sprs.lil_matrix( (self.N,self.N), dtype=np.complex)
+            M = sprs.lil_matrix( (self.N,self.N), dtype=np.complex128)
         else :
-            M = np.zeros( (self.N,self.N), dtype=np.complex)
+            M = np.zeros( (self.N,self.N), dtype=np.complex128)
         I,Ip3 = np.arange(0,self.N,6), np.arange(3,self.N,6)
         for d in (0,1,2) :
             M[I+d,Ip3+d] = 1.0
@@ -958,10 +958,10 @@ class SolidDiscretizedLayer(GeneralDiscretizedLayer) :
         """Matrix of coefficients of w'(z)."""
         Cxx,Cxz,Czx = self.__Cxx(0),self.__Cxz(0),self.__Czx(0)
         if GeneralDiscretizedLayer.SPARSE :
-            M = sprs.lil_matrix( (self.N,self.N), dtype=np.complex)
+            M = sprs.lil_matrix( (self.N,self.N), dtype=np.complex128)
             Cxx,Cxz,Czx = [sm.toarray() for sm in [Cxx,Cxz,Czx]]
         else :
-            M = np.zeros( (self.N,self.N), dtype=np.complex)
+            M = np.zeros( (self.N,self.N), dtype=np.complex128)
         if np.abs(S*self.__x_speeds-1).min() < 1e-5 :
             # Degenerate case : S coincide with 1/c_i
             return None
@@ -976,10 +976,10 @@ class SolidDiscretizedLayer(GeneralDiscretizedLayer) :
         """Matrix of coefficients of w''(z)."""
         Cxx,Czz = self.__Cxx(0),self.__Czz(0)
         if GeneralDiscretizedLayer.SPARSE :
-            M = sprs.lil_matrix( (self.N,self.N), dtype=np.complex)
+            M = sprs.lil_matrix( (self.N,self.N), dtype=np.complex128)
             Cxx,Czz = [sm.toarray() for sm in [Cxx,Czz]]
         else :
-            M = np.zeros( (self.N,self.N), dtype=np.complex)
+            M = np.zeros( (self.N,self.N), dtype=np.complex128)
         if np.abs(S*self.__x_speeds-1).min() < 1e-5 :
             # Degenerate case: S ~ 1/c_i
             return None
@@ -1634,9 +1634,9 @@ class DiscretizedMultilayerPlate :
         # 1 - global matrix for the multilayer plate only (N-by-N)
         shape,fds = (self.N,self.N), self.fds
         if GeneralDiscretizedLayer.SPARSE :
-            G = sprs.lil_matrix(shape, dtype=np.complex)
+            G = sprs.lil_matrix(shape, dtype=np.complex128)
         else :
-            G = np.zeros(shape, dtype=np.complex)
+            G = np.zeros(shape, dtype=np.complex128)
         cur_layer = self.__layers[0]
         M,C0,Cn = cur_layer.matrices_fixed_wavenumber(K,Nu)
         C0_left = C0
@@ -1861,9 +1861,9 @@ class DiscretizedMultilayerPlate :
             return G,mem_indexes,mem_pos
         L,R,N,T = self.L,self.R,self.N,self.T
         if GeneralDiscretizedLayer.SPARSE :
-            H = sprs.lil_matrix( (T,T), dtype=np.complex)
+            H = sprs.lil_matrix( (T,T), dtype=np.complex128)
         else :
-            H = np.zeros( (T,T), dtype=np.complex)
+            H = np.zeros( (T,T), dtype=np.complex128)
         H[:N,:N] = G[:,:].copy()       # W
         H[N:2*N,N:2*N] = G[:,:].copy() # i*kappa0*W (ou i*kappae*W)
         # Left-hand side
@@ -1945,9 +1945,9 @@ class DiscretizedMultilayerPlate :
             H[:Imax,2:Jmax:6] += WU[:,2::3]
             # v0
             if GeneralDiscretizedLayer.SPARSE :
-                I12 = sprs.lil_matrix( (2,3), dtype = np.complex )
+                I12 = sprs.lil_matrix( (2,3), dtype=np.complex128)
             else :
-                I12 = np.zeros( (2,3), dtype = np.complex )
+                I12 = np.zeros( (2,3), dtype=np.complex128)
             I12[0,0],I12[1,1] = 1.0,1.0
             I12A0L1 = I12@A0L1
                 # v0z*n 
@@ -2106,9 +2106,9 @@ class DiscretizedMultilayerPlate :
                 H[IminN:ImaxN,JminN+2:JmaxN:6] += WU[:,2::3]
             # ve
             if GeneralDiscretizedLayer.SPARSE :
-                I12 = sprs.lil_matrix( (2,3), dtype = np.complex )
+                I12 = sprs.lil_matrix( (2,3), dtype=np.complex128)
             else :
-                I12 = np.zeros( (2,3), dtype = np.complex )
+                I12 = np.zeros( (2,3), dtype=np.complex128)
             I12[0,0],I12[1,1] = 1.0,1.0
             I12AnL1 = I12@AnL1
                 # vez*n   
@@ -2334,9 +2334,9 @@ class DiscretizedMultilayerPlate :
         # 1.b - Building the global state matrix without the interfaces
         shape = (Gsize,Gsize)
         if SPARSE :
-            G = sprs.lil_matrix(shape, dtype=np.complex)
+            G = sprs.lil_matrix(shape, dtype=np.complex128)
         else :
-            G = np.zeros(shape, dtype=np.complex)
+            G = np.zeros(shape, dtype=np.complex128)
         for b,e,M in zip(idx_min,idx_max,LM) :
             G[b:e,b:e] = M
         # 1.c - Left interface (with the first layer)
@@ -2823,9 +2823,9 @@ class DiscretizedMultilayerPlate :
             T = 2*N+2
         shape = (T,T)
         if SPARSE :
-            H = sprs.lil_matrix(shape, dtype=np.complex)
+            H = sprs.lil_matrix(shape, dtype=np.complex128)
         else :
-            H = np.zeros(shape, dtype=np.complex)
+            H = np.zeros(shape, dtype=np.complex128)
         #-------
         H[:N,:N] = G.copy()       # [r0T] W [rnT] 
         H[N:2*N,N:2*N] = G.copy() # [i*kappa*r0T] i*kappa*W [i*kappa*rnT]
@@ -3287,9 +3287,9 @@ class DiscretizedMultilayerPlate :
         # 2 - Building the global matrix
         shape = (indexes[-1],indexes[-1])
         if GeneralDiscretizedLayer.SPARSE :
-            G = sprs.lil_matrix(shape, dtype=np.complex)
+            G = sprs.lil_matrix(shape, dtype=np.complex128)
         else :
-            G = np.zeros(shape, dtype=np.complex)
+            G = np.zeros(shape, dtype=np.complex128)
         for no,(i0,i1,i2,M,C0,Cn,itf,im) in enumerate( \
             zip(indexes[:-2:2], indexes[1:-1:2], indexes[2::2], \
                 LM, LC0, LCn, interfaces,interface_matrices) ) :

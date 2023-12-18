@@ -1,4 +1,4 @@
-# Version 1.0 / 2019, July, 31
+# Version 1.01 / 2023, July, 28
 # Copyright (Eric Ducasse 2020)
 # Licensed under the EUPL-1.2 or later
 # Institution :  I2M / Arts & Metiers ParisTech
@@ -6,9 +6,9 @@
 # ====== Initialization ==================================================
 import numpy as np
 import matplotlib.pyplot as plt
-import sys
-TraFiCpath = "H:\Recherche\TraFiC"
-sys.path.append(TraFiCpath)
+import sys, os
+TraFiCpath = ".."
+sys.path.append( os.path.abspath(TraFiCpath) )
 if __name__ == "__main__" : import TraFiC_init
 # ====== Material Classes ================================================
 from MaterialClasses import *

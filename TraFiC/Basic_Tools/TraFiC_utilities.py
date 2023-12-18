@@ -1,4 +1,4 @@
-# Version 1.00 - 2023, July 3rd
+# Version 1.01 - 2023, December 18
 # Copyright (Eric Ducasse 2020)
 # Licensed under the EUPL-1.2 or later
 # Institution:  I2M / Arts & Metiers ParisTech
@@ -7,6 +7,9 @@
 import time
 #=========================================================================
 # Time stamping
+def today() :
+    tm = time.localtime(time.time())
+    return "{:04d}-{:02d}-{:02d} ".format(*tm[:3])
 def now(with_date=False) :
     "Gives time... and date"
     tm = time.localtime(time.time())

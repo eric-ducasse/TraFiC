@@ -1,4 +1,4 @@
-# Version 1.01 - 2023, July 20
+# Version 1.1 - 2023, December 14
 # Copyright (Eric Ducasse 2020)
 # Licensed under the EUPL-1.2 or later
 # Institution:  I2M / Arts & Metiers ParisTech
@@ -58,7 +58,7 @@ class FieldComputationInProgress :
                    ("Fa","Sra"), ("Fz","Srz")) }
     #---------------------------------------------------------------------
     def __init__(self, comp_params_or_path, structure=None, \
-                 verbose=False) :
+                 cylindrically_symmetric=False, verbose=False) :
         msg = "FieldComputationInProgress constructor :: "
         # Verbose or not
         if verbose :

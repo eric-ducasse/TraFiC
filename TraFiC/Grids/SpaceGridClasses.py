@@ -1,4 +1,4 @@
-# Version 1.53 - 2023, July, 20
+# Version 1.6 - 2023, October, 30
 # Copyright (Eric Ducasse 2020)
 # Licensed under the EUPL-1.2 or later
 # Institution :  I2M / Arts & Metiers ParisTech
@@ -8,17 +8,23 @@ import matplotlib.pyplot as plt
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 import numpy as np
 from numpy.fft import fft,ifft,fft2,ifft2
+from scipy.special import sici
 ###############################################################################
 class Space1DGrid :
     """A 1D grid in space, with the corresponding grid in the wavenumbers 
-       domain, and the associated FFT tools."""
+       domain, and the associated FFT tools.
+            'nb' is the (even) number of discretization points.
+            'step' is the discretization step in space."""
     #--------------------------------------------------------------------------
-    def __init__(self,nb,step=1.0) :
-        """'nb' is the number of discretization points.
-           'step' is the discretization step in space."""
+    def __init__(self, nb, step=1.0, verbose =False) :
+        if verbose :
+            self.__prt = print
+        else :
+            self.__prt = lambda *args : None
+        prt = self.__prt
         if nb%2 == 1 :
             nb -= 1
-            print("The number of points as to be even:",nb,"considered")
+            prt(f"The number of points as to be even: {nb} considered")
         self.__nx = nb
         self.__mx = self.__nx//2
         self.__dx = step
@@ -99,15 +105,15 @@ class Space1DGrid :
         return np.array( [self.v_min - dxs2, self.v_max + dxs2 ] )
     @property
     def dk(self) :
-        """Discretization step in wavenumbers domain."""
+        """Discretization step in wavenumber domain."""
         return np.pi/self.v_max
     @property
     def k_max(self):
-        """Maximum value in wavenumbers domain."""
+        """Maximum value in wavenumber domain."""
         return self.dk*self.n_max
     @property
     def k_min(self):
-        """Minimum value in wavenumbers domain."""
+        """Minimum value in wavenumber domain."""
         return self.dk*self.n_min
     @property
     def wavenumber_values(self) :
@@ -117,11 +123,15 @@ class Space1DGrid :
     def K(self) :
         """ = self.wavenumber_values."""
         return self.wavenumber_values
+    @property
+    def Kc(self) :
+        """centered wavenumber_values."""
+        return self.sort2cent( self.wavenumber_values )
     #++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
     def __check(self, array, axis) :
         if array.shape[axis] != self.nb :
-            msg = ("Space1DGrid :: Incompatible shape! {} is required "+\
-                   "instead of {}").format(self.nb,array.shape[axis])
+            msg =  "Space1DGrid :: Incompatible shape!\n\t" + \
+                  f"{self.nb} is required  instead of {array.shape[axis]}"
             raise ValueError(msg)
         return True
     def sort2cent(self, array, axis=0) :
@@ -134,7 +144,7 @@ class Space1DGrid :
         return np.roll(array, 1-self.n_max, axis=axis)        
     def __str__(self) :
         fmt = "1D grid of {} points, from {:.3e} to {:.3e} (step: {:.3e})"
-        return fmt.format(self.nb,self.v_min,self.v_max,self.step)
+        return fmt.format(self.nb, self.v_min, self.v_max, self.step)
     def fft(self, array, axis=0, centered=False) :
         """Returns a numerical estimation of the Fourier transform
            (integrate(f(x) exp(i k x) dx). 'centered' indicates
@@ -217,39 +227,202 @@ class Space1DGrid :
                 msg = "Space1DGrid.zero_padding :: Warning: non neglictible "+\
                       "imaginary part of the obtained array."
                 print(msg)
-            return (g_zp,array_zp.real)        
+            return (g_zp,array_zp.real)
+    #++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+    @staticmethod
+    def Inum(X, Y) :
+        """ufunc which returns a numerical evaluation of the
+           integral over (-oo,0) of sinc(x-xi) sinc(x-yj) dx,
+           for all pairs (i,j), where sinc(x) = sin(pi x)/(pi x).
+           X and Y can be scalars or vectors and all xi and yj
+           must be positive."""
+        X_is_value = ( np.ndim(X) == 0 )
+        if X_is_value : X = [X]
+        Y_is_value = ( np.ndim(Y) == 0 )
+        if Y_is_value : Y = [Y]
+        X,Y = np.array(X), np.array(Y)
+        try :
+            assert np.all(X>0) and np.all(Y>0)
+        except :
+            raise ValueError("Error in 'Space1DGrid.Inum' staticmethod:\n" + \
+                             "\tall parameters have to be strictly positive.")
+        dpiX, dpiY = np.pi*X, np.pi*Y
+        # Matrices pi*X, pi*Y
+        piX, piY = np.meshgrid(dpiX, dpiY, indexing = "ij") 
+        dpiX *= 2 # Vector 2*pi*X
+        dpiY *= 2 # Vector 2*pi*Y
+        piXmY = piX - piY # Matrix pi*(X-Y)
+        SiX, CiX = sici( dpiX ) # Vectors of integral sine and cosine of X
+        SiY, CiY = sici( dpiY ) # Idem for Y
+        idx_diag = np.where( np.isclose( piX, piY , rtol=1e-7) )
+        piXmY[idx_diag] = 1.0 # To avoid division by zero
+        # xi != yj
+        R = 0.5 * ( ( np.log(piX/piY) - \
+                      np.einsum("i,j->ij",CiX,np.ones_like(CiY)) + \
+                      np.einsum("i,j->ij",np.ones_like(CiX),CiY) ) \
+                    * np.cos(piXmY) - \
+                    ( np.einsum("i,j->ij",SiX,np.ones_like(SiY)) + \
+                      np.einsum("i,j->ij",np.ones_like(SiX),SiY) - np.pi ) \
+                    * np.sin(piXmY) ) / (np.pi*piXmY)
+        # xi == yj
+        piX_diag = piX[idx_diag]
+        SiX_diag = SiX[idx_diag[0]]
+        R[idx_diag] = ( np.sin(piX_diag)**2 / piX_diag - SiX_diag ) / np.pi \
+                      + 0.5
+        if X_is_value :
+            if Y_is_value :
+                return R[0,0]
+            else :
+                return R[0,:]
+        else :
+            if Y_is_value :
+                return R[:,0]
+            else :
+                return R
+    #++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+    @staticmethod
+    def OptimizedBasis(n, m, sharpest_peaks_at_sides=0) :
+        """Returns :
+           1/ a n-by-(n+2m) matrix B representing a canonical (non-local) basis
+              of n discrete-variable functions that are zero-valued outside a
+              set S of n+2*m integer contiguous values.
+           2/ The 2m-by-n' matrix A2C which gives the first m and last m values
+              with respect to the n central values of any function it basis B.
+              n' = n - 2*sharpest_peaks_at_sides must be >= 0/
+           3/ The sharpest peak values (empty if sharpest_peaks_at_sides=0).
+           4/ An estimation of the relative negligibility of the corresponding
+              continuous-variable function outside the interval [b-dx, e-dx],
+              where dx is the discretization step, b and e are the first and
+              last values of S."""
+        SG = Space1DGrid
+        sps = sharpest_peaks_at_sides
+        try :
+           assert n > 0 and m > 0
+           n = round(n)
+           m = round(m)
+        except :
+            raise ValueError("Error in 'Space1DGrid.OptimizedBasis' " + \
+                             "static method:\n\tn and m have to be " + \
+                             "positive integers.")
+        try :
+            assert 0 <= sps <= n//2
+            sps = round(sps)
+        except :
+            raise ValueError("Error in 'Space1DGrid.OptimizedBasis' " + \
+                             "static method:\n\tsharpest_peaks_at_sides " + \
+                             f"must be an integer in [0,{n//2}].")
+        w = n+2*m
+        B = np.zeros( (n,w) )
+        if sps > 0 :
+            peak, _, _, err = SG.OptimizedBasis(1, m)
+            peak = peak[0]
+            npeak = peak.shape[0]
+            for i in range(sps) :
+                B[i,i:i+npeak] = peak
+                B[n-i-1,w-i-npeak:w-i] = peak
+            n -= 2 * sps
+        else :
+            peak = np.array([])
+            err = 0.0
+        if n > 0 :
+            a = np.arange(n)
+            c = np.append( np.arange(-m, 0), np.arange(n, m+n) )
+            Maa = SG.Inum(m+1+a,m+1+a) + SG.Inum(n+m-a,n+m-a)
+            Mca = SG.Inum(c+m+1,a+m+1) + SG.Inum(n+m-c,n+m-a)
+            Mcc = SG.Inum(c+m+1,c+m+1) + SG.Inum(n+m-c,n+m-c)
+            A2C = np.linalg.solve(Mcc, -Mca)
+            Bsup = np.concatenate( [ A2C[:m,:], np.eye(n), A2C[-m:,:] ] ).T
+            err_max = np.linalg.eigvalsh( Maa ).max()
+            Merr = Maa +  Mca.T@A2C
+            err = max( np.linalg.eigvalsh( Merr ).max()/err_max, err)
+            B[sps:sps+n, sps:w-sps] = Bsup
+        else :
+            A2C = np.array([])
+        return B, A2C, peak, err
+    #++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+    @staticmethod
+    def OrthonormalBasis(n, m, sharpest_peaks_at_sides=0, verification = False) :
+        """Returns an orthonormal basis (L2 scalar product )of size n defined
+           on 2n+4m+1 evenly spaced values (step 1/2) for which the support
+           of corresponding continuous-variable functions are included in a
+           common interval of length (n+2m+1) symmetrically containing the
+           2n+4m+1 values."""
+        SG = Space1DGrid
+        B, _, _, err = SG.OptimizedBasis(n, m, sharpest_peaks_at_sides)
+        if n%2 == 0 : # Even n
+            nL, nR = 1,1
+            size = n + 2*m + 2
+        else :# Odd n
+            nL, nR = 1,2
+            size = n + 2*m + 3
+        B = np.concatenate([ np.zeros((n,nL)), B, np.zeros((n,nR)) ], \
+                           axis=1)
+        local_grid = SG( size )
+        _,Bdouble = local_grid.zero_padding(B, 1, axis=1, centered=True)
+        S = 0.5 * Bdouble@Bdouble.T # integral of b_i*b_j on their common
+                                    # support of length n+2m+1
+        L, P = np.linalg.eigh( S )  # Diagonalization in orthonormal basis
+        B_ortho = np.diag( 1./np.sqrt(L) )@P.T@Bdouble
+        B_ortho = B_ortho[:, 2*nL: -2*nR+1]
+        if verification :
+            print( "Orthonormality checking:", \
+                   np.allclose(0.5*B_ortho@B_ortho.T, np.eye(n)) )
+        return B_ortho
 ###############################################################################
 if __name__ == "__main__" :
-    float_prt = lambda x : "{:.3f}".format(x)
-    def complex_prt(z) :
-        a,b = z.real,z.imag
-        if b >= 0 : return "{:.3f}+{:.3f}j".format(a,b)
-        else : return "{:.3f}{:.3f}j".format(a,b)
-    np.set_printoptions(formatter={"complex_kind":complex_prt,\
-                                   "float_kind":float_prt})
-    gt = Space1DGrid(8,0.5)
-    print(gt)
-    print("(sorted) space vector:",gt.space_values)
-    print("centered space vector:",gt.sort2cent(gt.space_values))
-    cases,opt = ["[0,1,0,0,0,0,0,0]","[0,0,0,0,1,0,0,0]"],\
-                ["",",centered=True"]
-    for c,o in zip(cases,opt) :
-        test = "gt.fft(np.array("+c+")"+o+")"
-        tf = eval(test)
-        print("tf =",test,"; tf:")
-        print(tf)
-        test2 = "gt.ifft(tf"+o+")"
-        print(test2,"->",eval(test2))
-    print("sorted wavenumbers:",gt.wavenumber_values)
-    print("centered wavenumbers:",gt.sort2cent(gt.wavenumber_values))
-    A = np.array([[0,1,0,0,0,0,0,0],[0,0,0.22,0.78,1,0.78,0.22,0]])
-    gzp,Azp = gt.zero_padding(A,5,axis=1,centered=True)
-    plt.figure("Zero-padding 1D")
-    plt.plot(gzp.sort2cent(gzp.space_values),Azp[0].real,".r")
-    plt.plot(gzp.sort2cent(gzp.space_values),Azp[1].real,".m")
-    plt.plot(gt.sort2cent(gt.space_values),A[0].real,"ob")
-    plt.plot(gt.sort2cent(gt.space_values),A[1].real,"sg")
-    plt.show()
+    # Space1DGrid Example
+    if False : # Change True/False to show example
+        float_prt = lambda x : f"{x:.3f}"
+        def complex_prt(z) :
+            a,b = z.real,z.imag
+            if b >= 0 : return f"{a:.3f}+{b:.3f}j"
+            else : return f"{a:.3f}{b:.3f}j"
+        np.set_printoptions(formatter={"complex_kind":complex_prt,\
+                                       "float_kind":float_prt})
+        gt = Space1DGrid(8,0.5)
+        print(gt)
+        print("(sorted) space vector:",gt.space_values)
+        print("centered space vector:",gt.Xc )
+        cases,opt = ["[0,1,0,0,0,0,0,0]","[0,0,0,0,1,0,0,0]"],\
+                    ["",",centered=True"]
+        for c,o in zip(cases,opt) :
+            test = "gt.fft(np.array("+c+")"+o+")"
+            tf = eval(test)
+            print("tf =",test,"; tf:")
+            print(tf)
+            test2 = "gt.ifft(tf"+o+")"
+            print(test2,"->",eval(test2))
+        print("sorted wavenumbers:", gt.wavenumber_values)
+        print("centered wavenumbers:", gt.Kc )
+        A = np.array([[0,1,0,0,0,0,0,0], [0,0,0.22,0.78,1,0.78,0.22,0] ])
+        gzp,Azp = gt.zero_padding(A, 5, axis=1, centered=True)
+        plt.figure("Zero-padding 1D")
+        plt.plot(gzp.Xc,Azp[0].real,".r")
+        plt.plot(gzp.Xc,Azp[1].real,".m")
+        plt.plot(gt.Xc,A[0].real,"ob")
+        plt.plot(gt.Xc,A[1].real,"sg")
+        plt.show()
+    # Tools for function bases on an interval [a,b]
+    if True :
+        examples = [ f"Space1DGrid.Inum({n1},{n2})" for n1,n2 in \
+                     ((1,1), (1,2), (1,[1,2]), ([1,2],1), ([1,2,3],[1,2,3])) ]
+        for ex in examples :
+            result = eval(ex).round(6)
+            print(f"***** {ex} *****\n{result}")            
+        for n,m,sps in ((1,2,0), (1,3,0), (2,3,0), (8,3,2)) :
+            B, A2C, pk, err = Space1DGrid.OptimizedBasis(n, m, sps)
+            sz,pts = B.shape
+            print(f"***** Space1DGrid.OptimizedBasis({n}, {m}) *****" + \
+                  f"\nBasis of size {sz} defined on {pts} points" + \
+                  f"\n{A2C.round(3)}\nRelative Error ~ {err:.2e}.")
+            if sps > 0 :
+                print(f"B matrix:\n{B[:,:7].round(3)}\n{B[:,7:].round(3)}")
+        for n,m,sps in ((1,2,0), (1,3,0), (2,3,0), (8,3,2), (20,4,2)) :
+            B = Space1DGrid.OrthonormalBasis(n, m, sps, True)
+            sz,pts = B.shape
+            print(f"***** Space1DGrid.OrthonormalBasis({n}, {m}) *****" + \
+                  f"\nBasis of size {sz} defined on {pts} points" + \
+                  f"\n{B.round(2)}")
 ###############################################################################
 class Space2DGrid :
     """A 2D grid in space, with the corresponding grid in the wavenumbers 
@@ -360,9 +533,9 @@ class Space2DGrid :
         fmt = "2D grid of (ny={})-by-(nx={}) points, with (x,y) in\n"+\
             " [{:.3e},{:.3e}]x[{:.3e},{:.3e}]\n"+\
             " (steps: dx={:.3e} and dy={:.3e})"
-        return fmt.format(self.ny,self.nx,self.__grid_x.v_min,\
-                          self.__grid_x.v_max,self.__grid_y.v_min,\
-                          self.__grid_y.v_max,self.dx,self.dy)
+        return fmt.format(self.ny, self.nx, self.__grid_x.v_min,\
+                          self.__grid_x.v_max, self.__grid_y.v_min,\
+                          self.__grid_y.v_max, self.dx, self.dy)
     #++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
     def fft(self,array,axes=[0,1],centered=False) :
         """Returns a numerical estimation of the Fourier transform
@@ -592,43 +765,176 @@ class Space2DGrid :
                                     bottom=0.05,top=0.98)
             if show : plt.show()
             else : return draw_axis
-        
 ###############################################################################
 if __name__ == "__main__" :
-    g2dt = Space2DGrid(8, 6, 0.25, 0.2)
-    print(g2dt)
-    A = np.zeros( g2dt.shape )
-    A[1,2] = 1
-    #print("Direct Fourier transform:")
-    B = g2dt.fft(A)
-    #print(B)
-    A[1,2] = 1
-    #print("Inverse Fourier transform:")
-    #print(g2dt.ifft(B))
-    MX,MY = g2dt.MX_MY
-    field = np.exp(2j*(MX+2*MY))
-    g2dt.plot(field)
-    g2dt.plot( 2*abs(g2dt.fft(field)), height=5, fig_name="2D FFT", show=True)
-    g2dt.plot(field, colorbar=False, fig_name="Field without colorbar", \
-              show=True)
-    # Drawing on existing axis
-    plt.figure("Figure with two subplots", figsize=(7,7))
-    ax1,ax2 = plt.subplot(2,1,1), plt.subplot(2,1,2)
-    ax1.plot( np.linspace(0,20,201), np.sin(np.linspace(0,20,201)), "m-")
-    ax1.grid()    
-    g2dt.plot(field.real, draw_axis=ax2)
-    plt.show()
-    import numpy.random as rd
-    R = rd.normal(0, 1, (3,g2dt.ny,g2dt.nx,2,2))
-    MX,MY = g2dt.MX_MY
-    R = np.einsum("lijmn,ij->lijmn", R, np.exp(-8*(MX**2+MY**2)))
-    g2dzp,R2dzp = g2dt.zero_padding(R, 9, axes=(1,2))    
-    from mpl_toolkits.mplot3d import Axes3D
-    fig = plt.figure("2D Zero-padding on Random Points", figsize=(8,7))
-    ax = plt.subplot(1, 1, 1, projection="3d")
-    ax.plot(MX.flatten(), MY.flatten(), R[2,:,:,0,1].real.flatten(), '.b')
-    MXzp,MYzp = g2dzp.MX_MY
-    ax.plot(MXzp.flatten(), MYzp.flatten(), R2dzp[2,:,:,0,1].real.flatten(), \
-           '.r', markersize=1)
-    plt.subplots_adjust(left=0.02, right=0.98, bottom=0.02, top=0.98)
-    plt.show()
+    # Space2DGrid example
+    if False :  # Change True/False to show example
+        g2dt = Space2DGrid(8, 6, 0.25, 0.2)
+        print(g2dt)
+        A = np.zeros( g2dt.shape )
+        A[1,2] = 1
+        #print("Direct Fourier transform:")
+        B = g2dt.fft(A)
+        #print(B)
+        A[1,2] = 1
+        #print("Inverse Fourier transform:")
+        #print(g2dt.ifft(B))
+        MX,MY = g2dt.MX_MY
+        field = np.exp(2j*(MX+2*MY))
+        g2dt.plot(field)
+        g2dt.plot( 2*abs(g2dt.fft(field)), height=5, fig_name="2D FFT", \
+                   show=True)
+        g2dt.plot(field, colorbar=False, fig_name="Field without colorbar", \
+                  show=True)
+        # Drawing on existing axis
+        plt.figure("Figure with two subplots", figsize=(7,7))
+        ax1,ax2 = plt.subplot(2,1,1), plt.subplot(2,1,2)
+        ax1.plot( np.linspace(0,20,201), np.sin(np.linspace(0,20,201)), "m-")
+        ax1.grid()    
+        g2dt.plot(field.real, draw_axis=ax2)
+        plt.show()
+        import numpy.random as rd
+        R = rd.normal(0, 1, (3,g2dt.ny,g2dt.nx,2,2))
+        MX,MY = g2dt.MX_MY
+        R = np.einsum("lijmn,ij->lijmn", R, np.exp(-8*(MX**2+MY**2)))
+        g2dzp,R2dzp = g2dt.zero_padding(R, 9, axes=(1,2))    
+        from mpl_toolkits.mplot3d import Axes3D
+        fig = plt.figure("2D Zero-padding on Random Points", figsize=(8,7))
+        ax = plt.subplot(1, 1, 1, projection="3d")
+        ax.plot(MX.flatten(), MY.flatten(), R[2,:,:,0,1].real.flatten(), '.b')
+        MXzp,MYzp = g2dzp.MX_MY
+        ax.plot(MXzp.flatten(), MYzp.flatten(), R2dzp[2,:,:,0,1].real.flatten(), \
+               '.r', markersize=1)
+        plt.subplots_adjust(left=0.02, right=0.98, bottom=0.02, top=0.98)
+        plt.show()
+
+###############################################################################
+from scipy.special import j0, j1
+class CylSymGrid :
+    """A cylindrically symmetric grid in space, with the corresponding grid
+       in the wavenumber domain, and the associated transformation tools
+       (Fourier-Bessel).
+            'nb' is the number of discretization points.
+            'step' is the discretization step in space."""
+    #--------------------------------------------------------------------------
+    def __init__(self, nb, step=1.0, verbose=False) :
+        if verbose :
+            self.__prt = print
+        else :
+            self.__prt = lambda *args : None
+        self.__nr = nb
+        self.__dr = step
+        self.__rmax = self.__dr * (self.__nr - 1)
+        self.__rmin = 0.0
+        self.__tabJ0 = j0(self.mat_KR)
+        self.__tabJ1 = j1(self.mat_KR)
+    #++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+    @property
+    def nb(self) : 
+        """Number of points."""
+        return self.__nr
+    @property
+    def nr(self) : 
+        """Number of points."""
+        return self.__nr
+    @property
+    def shape(self) : return (self.__nr,)
+    @property
+    def step(self) : 
+        """Discretization step in space."""
+        return self.__dr
+    @property
+    def dr(self) : 
+        """Discretization step in space."""
+        return self.__dr
+    @property
+    def v_max(self) :
+        """Maximum value in space."""
+        return self.__rmax
+    @property
+    def v_min(self) :
+        """Minimum value in space."""
+        return self.__rmin
+    @property
+    def rmax(self) :
+        """Maximum value in space."""
+        return self.__rmax
+    @property
+    def rmin(self) :
+        """Minimum value in space."""
+        return self.__rmin
+    @property
+    def r_max(self) :
+        """Maximum value in space."""
+        return self.__rmax
+    @property
+    def r_min(self) :
+        """Minimum value in space."""
+        return self.__rmin
+    @property
+    def space_values(self) : 
+        """Space radial values."""
+        return self.__dr * np.arange( self.__nr )
+    @property
+    def R(self) : 
+        """Space radial values ."""
+        return self.__dr * np.arange( self.__nr )
+    @property
+    def g_range(self) : 
+        """Range for graphics (imshow)."""
+        drs2 = 0.5*self.__dr
+        return np.array( [self.__rmin - drs2, self.__rmax + drs2 ] )
+    @property
+    def dk(self) :
+        """Discretization step in wavenumber domain."""
+        return np.pi/self.__rmax
+    @property
+    def k_max(self):
+        """Maximum value in wavenumber domain."""
+        return self.dk * (self.__nr - 1)
+    @property
+    def k_min(self):
+        """Minimum value in wavenumber domain."""
+        return 0.0
+    @property
+    def wavenumber_values(self) :
+        """Wavenumber values."""
+        return self.dk * np.arange(self.__nr)
+    @property
+    def K(self) :
+        """ = self.wavenumber_values."""
+        return self.wavenumber_values
+    @property
+    def mat_KR(self) :
+        """Matrix of products k*r (k in rows, r in columns)."""
+        MK, MR = np.meshgrid( self.R, self.K )
+        return MK*MR       
+    def __str__(self) :
+        fmt = "Cylindrically symmetric grid of {} points,\n\t" + \
+              "from 0 to {:.3e} (step: {:.3e})"
+        return fmt.format(self.nr, self.r_max, self.dr)
+    #++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+    def __check(self, array, axis) :
+        if array.shape[axis] != self.nb :
+            msg =  "CylSymGrid :: Incompatible shape!\n\t" + \
+                  f"{self.nb} is required instead of {array.shape[axis]}"
+            raise ValueError(msg)
+        return True 
+    #++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+    def NHT(self, order, array, axis) :
+        """Numerical Hankel (or Fourier-Bessel) Transform.
+           Numerical approximation of
+              \int_{0}^{r_{max}} f(r) J_{order}(k r) r dr."""
+        self.__check(array, axis) 
+    #++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+    def iNHT(self, order, array, axis) :
+        """Numerical Inverse Hankel (or Fourier-Bessel) Transform.
+           Numerical approximation of
+              \int_{0}^{k_{max}} f(k) J_{order}(k r) k dk."""
+        self.__check(array, axis)
+###############################################################################
+if __name__ == "__main__" :
+    # CylSymGrid example
+    if True :  # Change True/False to show example
+        cs_gd = CylSymGrid( 11, 0.1 )
+        print(cs_gd)
