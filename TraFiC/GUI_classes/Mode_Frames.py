@@ -1,4 +1,4 @@
-# Version 0.85 - 2022, May 25
+# Version 0.83 - 2023, December 18
 # Copyright (Eric Ducasse 2020)
 # Licensed under the EUPL-1.2 or later
 # Institution:  I2M / Arts & Metiers ParisTech
@@ -291,7 +291,7 @@ class Mode_Shape_Figure(QFrame):
         self.__canvas  = FigureCanvas(self.__figure)
         # In-plane axes
         self.__xy_u = self.__figure.add_subplot(2,1,1)
-        self.__xy_S = self.__xy_u.twinx()
+        self.__xy_S = self.__xy_u.twinx() 
         # Out-of-plane axes
         self.__z__u  = self.__figure.add_subplot(2,1,2)
         self.__z_SP = self.__z__u.twinx()
@@ -468,16 +468,20 @@ class Mode_Shape_Figure(QFrame):
         self.__xy_u.grid() ; self.__z__u.grid()
         if self.__stresses :     
             self.__xy_S.set_ylabel("In-plane Stresses [MPa]", \
-                               **self.DEFONT)      
+                               **self.DEFONT) 
+            self.__xy_S.yaxis.set_label_position("right")     
             self.__z_SP.set_ylabel("Out-of-plane Stresses [MPa]", \
                                **self.DEFONT)
+            self.__z_SP.yaxis.set_label_position("right")
             self.__xy_S.grid(color="pink")
             self.__z_SP.grid(color="pink")
         elif self.__Poynting :     
             self.__xy_S.set_ylabel( \
                           "(Poynting vector) [W/mm²]", \
-                          **self.DEFONT)      
+                          **self.DEFONT)  
+            self.__xy_S.yaxis.set_label_position("right")    
             self.__z_SP.set_ylabel("")
+            self.__z_SP.yaxis.set_label_position("right")
             self.__xy_S.grid(color="pink")
             self.__z_SP.grid(color="pink")
         else : # None
@@ -656,6 +660,7 @@ class Mode_Shape_Figure(QFrame):
                 self.__z_SP.set_ylabel( \
                                   "Local Energy Velocity [mm/µs]", \
                                   **self.DEFONT)
+                self.__z_SP.yaxis.set_label_position("right")
             if self.__P_sel.isChecked(Et):
                 leg_z = True
                 Y = self.__data[Et]
@@ -665,6 +670,7 @@ class Mode_Shape_Figure(QFrame):
                 self.__z_SP.set_ylabel( \
                                   "Volume Energy [µJ/mm³]", \
                                   **self.DEFONT)
+                self.__z_SP.yaxis.set_label_position("right")
             if leg_xy :
                 self.__xy_S.legend(loc="upper right") 
                 p_min = 1.05*p_min-0.05*p_max
