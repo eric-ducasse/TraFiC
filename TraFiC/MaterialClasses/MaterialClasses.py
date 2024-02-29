@@ -1,12 +1,15 @@
-# Version 3.77 - 2023, February, 06
+# Version 3.78 - 2024, February, 14
 # Copyright (Eric Ducasse 2020)
 # Licensed under the EUPL-1.2 or later
 # Institution:  I2M / Arts & Metiers ParisTech
 # Program name: TraFiC (Transient Field Computation)
 #++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-if __name__ == "__main__" : import TraFiC_init
 import os
 from os.path import basename, dirname, abspath, isfile
+if __name__ == "__main__" :
+    import sys
+    sys.path.append( abspath("..") )
+    import TraFiC_init
 import numpy as np
 #++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 def clean(chaine) :

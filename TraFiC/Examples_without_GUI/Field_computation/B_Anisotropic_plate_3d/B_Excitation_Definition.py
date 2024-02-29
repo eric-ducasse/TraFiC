@@ -1,4 +1,4 @@
-# Version 1.0 - 2023, July, 20
+# Version 1.01 - 2024, January, 29
 # Copyright (Eric Ducasse 2020)
 # Licensed under the EUPL-1.2 or later
 # Institution :  I2M / Arts & Metiers ParisTech
@@ -94,7 +94,7 @@ szpg, sd_zp = x_gd.zero_padding(sd_val, 9, centered=True)
 # 1D Fourier Transform
 nk = x_gd.n_max +1
 Kx = x_gd.K[:nk]
-sd_asd = 2*np.abs(x_gd.fft(x_gd.sort2cent(sd_val))[:nk])
+sd_asd = 2*np.abs(x_gd.fft(x_gd.cent2sort(sd_val))[:nk])
 # 2D plot
 fig_shp = plt.figure("Normal excitation", figsize=(13.8,7.3))
 (axX, axK), (axXY, Zoom) = fig_shp.subplots(2,2)
@@ -110,7 +110,7 @@ axX.grid()
 axK.set_title("Spatial amplitude spectrum", **opt)
 axK.set_xlabel("Wavenumber $k_x$ [$/$mm]", **opt)
 axK.set_ylabel(r"ASD values [a.u.$\times$mm]", **opt)
-axK.plot( 1e-3*Kx, 1e3*sd_asd, ".m")
+axK.plot( 1e-3*Kx, 1e3*sd_asd, "-m")
 axK.set_xlim( -1e-5*x_gd.k_max, 1.02e-3*x_gd.k_max )
 axK.grid()
 # plt.show()
@@ -142,7 +142,7 @@ T_val = smooth_door( x_gd.Xc ) * x_gd.Xc * 2 / transducer_width
 # Zero-padding
 _, T_zp = x_gd.zero_padding(T_val, 9, centered=True)
 # 1D Fourier Transform
-T_asd = 2*np.abs(x_gd.fft(x_gd.sort2cent(T_val))[:nk])
+T_asd = 2*np.abs(x_gd.fft(x_gd.cent2sort(T_val))[:nk])
 # 2D plot
 fig_shp2 = plt.figure("Tangential excitation", figsize=(13.6,7.2))
 (axX2, axK2), (ZoomFx, ZoomFy) = fig_shp2.subplots(2,2)
@@ -157,7 +157,7 @@ axX2.grid()
 axK2.set_title("Spatial amplitude spectrum", **opt)
 axK2.set_xlabel("Wavenumber $k_x$ [$/$mm]", **opt)
 axK2.set_ylabel(r"ASD values [a.u.$\times$mm]", **opt)
-axK2.plot( 1e-3*Kx, 1e3*T_asd, ".m")
+axK2.plot( 1e-3*Kx, 1e3*T_asd, "-m")
 axK2.set_xlim( -1e-5*x_gd.k_max, 1.02e-3*x_gd.k_max )
 axK2.grid()
 #plt.show()

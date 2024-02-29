@@ -1,4 +1,4 @@
-# Version 1.01 - 2023, July, 20
+# Version 1.02 - 2024, January, 29
 # Copyright (Eric Ducasse 2020)
 # Licensed under the EUPL-1.2 or later
 # Institution :  I2M / Arts & Metiers ParisTech
@@ -90,7 +90,7 @@ szpg, sd_zp = sp_gd.zero_padding(sd_val, 9, centered=True)
 # Fourier Transform
 nk = sp_gd.n_max +1
 Kx = sp_gd.K[:nk]
-sd_asd = 2*np.abs(sp_gd.fft(sp_gd.sort2cent(sd_val))[:nk])
+sd_asd = 2*np.abs(sp_gd.fft(sp_gd.cent2sort(sd_val))[:nk])
 # Space, wavenumber and excitation plots
 fig_shp = plt.figure("Space, wavenumber and excitation plots", \
                      figsize=(13.8,7.3))
@@ -110,7 +110,7 @@ axX.grid()
 axK.set_title("Spatial amplitude spectrum", **opt)
 axK.set_xlabel("Wavenumber $k_x$ [$/$mm]", **opt)
 axK.set_ylabel(r"ASD values [a.u.$\times$mm]", **opt)
-axK.plot( 1e-3*Kx, 1e3*sd_asd, ".m")
+axK.plot( 1e-3*Kx, 1e3*sd_asd, "-m")
 axK.set_xlim( -1e-5*sp_gd.k_max, 1.02e-3*sp_gd.k_max )
 axK.grid()
 #+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++

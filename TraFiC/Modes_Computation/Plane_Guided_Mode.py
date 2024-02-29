@@ -1,4 +1,4 @@
-# Version 1.23 - 2022, April 27
+# Version 1.24 - 2024, February 19
 # Copyright (Eric Ducasse 2020)
 # Licensed under the EUPL-1.2 or later
 # Institution :  I2M / Arts & Metiers ParisTech
@@ -102,9 +102,15 @@ class Plane_Guided_Mode :
         if normalized : self.normalize()
     #---------------------------------------------------------------------
     def __str__(self) :
-        txt = f"Mode {self.__name}: phase velocity {self.Vphi:.3f} mm/µs;"
-        txt += f" Frequency {self.f:.4f} MHz;" + \
-               f" Wavenumber {self.k:.4f} mm^-1"
+        txt = f"Mode {self.__name}: "
+        nb = len(txt)
+        txt += f"phase velocity {self.Vphi:.3f} mm/µs; " + \
+               f"Frequency {self.f:.4f} MHz;\n" + nb*" " + \
+               f"Wavenumumber {self.k:.4f} mm^-1"
+        if self.is_a_true_guided_mode :
+            txt += f"; Energy velocity {self.Ve:.3f} mm/µs."
+        else :
+            txt += " (not true guided mode)"
         return txt
     #---------------------------------------------------------------------
     def keys(self) :
@@ -176,11 +182,20 @@ class Plane_Guided_Mode :
     @property
     def Vphi(self) :
         """Returns phase velocity in mm/µs."""
-        return 1e-3*self.__v_phi
+        return 1e-3 * self.__v_phi
+    @property
+    def Ve_vector(self) :
+        """Returns the energy velocity vector in mm/µs."""
+        return 1e-3 * self.__v_en
     @property
     def Ve(self) :
-        """Returns energy velocity vector in mm/µs."""
-        return 1e-3*self.__v_en
+        """Returns energy velocity vector in mm/µs.
+           The real and imaginary parts are the velocity components
+           in the x and y directions, respectively."""
+        Vex, Vey = 1e-3 * self.__v_en
+        if abs(Vey) < 1e-5 or abs(Vey) < 1e-7*abs(Vex) :
+            return Vex
+        return Vex + 1.0j*Vey
     @property
     def Vex(self) :
         """Returns energy velocity in the x-direction in mm/µs."""
@@ -719,7 +734,7 @@ class ModeShapeViewer(QWidget) :
         title.setFont( QFont("Arial", 14, QFont.Bold))
         title.setStyleSheet("color: rgb(0,0,200) ;" + \
                             "background-color: rgb(255,240,230) ;")
-        title.setFixedHeight(40)
+        title.setFixedHeight(60)
         vlay = QVBoxLayout()
         hlay1 = QHBoxLayout()
         hlay1.addStretch()

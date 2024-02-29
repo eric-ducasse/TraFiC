@@ -1,4 +1,4 @@
-# Version 0.98 - 2023, December, 18
+# Version 0.98 - 2024, February, 19
 # Copyright (Eric Ducasse 2020)
 # Licensed under the EUPL-1.2 or later
 # Institution :  I2M / Arts & Metiers ParisTech
@@ -3154,6 +3154,7 @@ class DiscretizedMultilayerPlate :
     # Fixed slowness
     #--------------------------------------------------
     def global_matrix_fixed_slowness(self, S ,signs=[1,1], verbose=False):
+        """Warning: uncomplete method. Some cases are not yet treated"""
         if verbose :
             prt = print
         else :
@@ -3568,7 +3569,7 @@ class DiscretizedMultilayerPlate :
     #--------------------------------------------------    
     def modes_for_given_wavenumber(self, K, Nu=0.0, sign=1, \
                                    rel_err=1e-4, rel_kappa_err=1e-2, \
-                                   normalized=True) :
+                                   normalized=True, verbose=False) :
         """WARNING: New Version since 2021, December 14."""
         if np.ndim(K) == 0 : # K is a single value
             big_G,LI,LP = self.global_matrix_fixed_wavenumber(K,Nu,sign)
@@ -3582,10 +3583,14 @@ class DiscretizedMultilayerPlate :
         else :
             print("K cannot be an array with more than one index")
             return
+        if verbose :
+            prt = print
+        else :
+            prt = lambda *args : None
         FDLay = FluidDiscretizedLayer
         iW, VP = np.linalg.eig(big_G)
         W = -1.0j*iW ; del iW
-        VP = np.swapaxes( VP, -1, -2)
+        VP = VP.swapaxes(-1, -2)
         if np.ndim(K) == 0 :
             indexes = np.where( W.round(0).real > 0 )[0]
             W,VP = W[indexes], VP[indexes]
@@ -3611,8 +3616,8 @@ class DiscretizedMultilayerPlate :
                 Tab_K = np.concatenate([Tab_K, k*np.ones(nb_idx)])
             Kx,W,VP = Tab_K, Tab_W, Tab_VP
         # Kx and W are vectors, VP is a matrix
-        print("Kx.shape:", Kx.shape, "; W.shape:", W.shape, \
-              "; VP.shape:", VP.shape)
+        prt(f"Kx.shape: {Kx.shape}, W.shape: {W.shape}, " + \
+            f"VP.shape:{VP.shape}")
         # Loop on layers :
         modes = []
         prev_lay = None
@@ -3684,9 +3689,8 @@ class DiscretizedMultilayerPlate :
                 raise ValueError(msg)
             Ce = coef*phie
         # Kx and W are vectors, VP is a matrix
-        print("Kx.shape:", Kx.shape, "; W.shape:", W.shape, \
-              "; VP.shape:", VP.shape)
-        print("K;", K)
+        prt(f"Kx.shape: {Kx.shape}, W.shape: {W.shape}, " + \
+            f"VP.shape:{VP.shape}\nK: {K}" )
         # Previous returned tuple : (K, 0.5*W/np.pi, modes)
         F = 0.5*W/np.pi
         if np.ndim(K) == 0 : # A single k value
@@ -3713,7 +3717,7 @@ class DiscretizedMultilayerPlate :
                                                 normalized=normalized) )
             L_pgm.append(pgm)
         return pgm
-    #--------------------------------------------------
+    #----------------------------------------------------------------------
     def modes_for_given_frequency(self, F, Nu=0.0, sign=1, \
                                   rel_err=1e-4, rel_kappa_err=1e-2, \
                                   normalized=True) :
@@ -3734,7 +3738,7 @@ class DiscretizedMultilayerPlate :
             return
         FDLay = FluidDiscretizedLayer
         miK, VP = np.linalg.eig(G)
-        VP = np.swapaxes( VP, -1, -2)
+        VP = VP.swapaxes( -1, -2)
         K = 1.0j*miK # Vector of wavenumbers in the x-direction
         indexes = np.where( K.round(0).real > 0 )[0]
         K,VP = K[indexes], VP[indexes]
@@ -3815,23 +3819,22 @@ class DiscretizedMultilayerPlate :
             mode_instances.append( \
                             Plane_Guided_Mode(self, f, kx, mode, nu, \
                                               normalized=normalized) )
-        return mode_instances           
-    #--------------------------------------------------
-    def modes_for_given_slowness(self, S, signs=[1,1], rel_arr=1e-3) :
-        pass
-    #++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++   
+        return mode_instances   
     #++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
     def first_frequency_values_for_given_slowness(self, S, nb=20,
                                sort_by_imag = True, threshold_imag=0.1, \
-                               with_mode_shapes=False,verbose=False,
+                               with_mode_shapes=False, verbose=False,
                                signs=(1,1)) :
         """S is the value of the slowness (scalar).
            nb is the number of wanted frequency values"""
+        if verbose :
+            prt = print
+        else :
+            prt = lambda *args : None
         G,LI,LP = self.global_matrix_fixed_slowness(S, signs=signs, \
                                                        verbose=verbose)
         if G is None :
-            if verbose :
-                print(f"Degenerate case for 1/s ~ {1e-3/S:.5f} mm/µs")
+            prt(f"Degenerate case for 1/s ~ {1e-3/S:.5f} mm/µs")
             return
         if GeneralDiscretizedLayer.SPARSE :
             G = G.toarray()
@@ -3851,8 +3854,131 @@ class DiscretizedMultilayerPlate :
             return None
         frequencies, mode_shapes, emax = result
         if with_mode_shapes : return frequencies, mode_shapes
-        else : return frequencies # eigenfrequencies only
-    #--------------------------------------------------
+        else : return frequencies # eigenfrequencies only          
+    #----------------------------------------------------------------------
+    def modes_for_given_slowness(self, S, signs=[1,1], rel_err=1e-4, \
+                                  normalized=True, verbose=False) :
+        "WARNING: uncomplete global_matrix_fixed_slowness method!"
+        if verbose :
+            prt = print
+        else :
+            prt = lambda *args : None
+        if np.ndim(S) == 0 : # S is a single value
+            G,LI,LP = self.global_matrix_fixed_slowness(S, signs=signs, \
+                                                       verbose=verbose)
+            if G is None :
+                prt(f"Degenerate case for 1/s ~ {1e-3/S:.5f} mm/µs")
+                return []
+        elif np.ndim(S) == 1 : # S is vector
+            return [ self.modes_for_given_slowness( slowness, signs, \
+                                                    rel_err, normalized, \
+                                                    verbose) \
+                      for slowness in S  ]
+        else :
+            print("S cannot be an array with more than one index")
+            return
+        if GeneralDiscretizedLayer.SPARSE :
+            G = G.toarray()
+        # Eigenvalues
+        W, VP = np.linalg.eig(G)
+        VP = VP.swapaxes(-1,-2)
+        W *= -1.0j
+        indexes = np.argsort( np.abs(W.real) )
+        W = W[indexes] ; VP = VP[indexes]
+        F = 0.5 * W / np.pi
+        K = W * S
+        indexes = np.where( F.real > 0.0 )[0]
+        K,F,W,VP = K[indexes],F[indexes],W[indexes],VP[indexes]
+        # Loop on layers :
+        FDLay = FluidDiscretizedLayer
+        modes = []
+        for no,(lay,idx) in enumerate(zip(self.layers,LI)) :
+            if isinstance(lay, FDLay) : # Fluid layer
+                Phi = VP[:,idx]
+                Kz,C,RE = lay.mode_shape(Phi, K, W)
+            else : # Solid layer
+                Ux,Uy,Uz = VP[:,idx],VP[:,idx+1],VP[:,idx+2]
+                Ush = Ux.shape
+                tab_U = np.empty( Ush[:-1]+(3*Ush[-1],), dtype=Ux.dtype)
+                tab_U[...,::3],tab_U[...,1::3],tab_U[...,2::3] = Ux,Uy,Uz
+                Kz,C,RE = lay.mode_shape(tab_U, K, W)
+            indexes = np.where(RE<rel_err)[0]
+            K,F,W,VP = K[indexes],F[indexes],W[indexes],VP[indexes]
+            modes.append( [Kz[indexes],C[indexes],RE[indexes]] )
+            for pm in modes[:no] : # Previous layers:
+                for i,e in enumerate(pm) :
+                    pm[i] = e[indexes]
+        nb_lay = self.nb_layers# Left-hand side
+        vec_zero = np.zeros_like(K)
+        if self.left_fluid is None or self.left_fluid == "Wall"  :
+            kz0,C0 = vec_zero,vec_zero
+        else : # External fluid
+            cur_layer = self.layers[0]
+            c0 = self.left_fluid.c            
+            kz0 = signs[0] * W * np.sqrt(1.0/c0**2-S**2)
+            if isinstance(cur_layer, FDLay) :
+                # Additional interfacial state vector [ Phi0 ]
+                C0 = VP[:,0]
+            else : # First layer is solid
+                # Additional interfacial state vector r0 (r_0^perp)
+                # i*kz0*Phi0 = V0z = last component of Avr0@r0 + Avv0@V
+                idx = LI[0]
+                R0 = VP[:, :idx[0]].transpose()
+                Vx,Vy,Vz = VP[:, idx+3],VP[:, idx+4],VP[:, idx+5]
+                matrices = cur_layer.FS_matrices_0( S, self.left_fluid, \
+                                                signs[0])
+                _,_, Avr0, Avv0,_,_ = matrices
+                _,nb0 = Avv0.shape
+                nb0 //= 3
+                C0 = -1.0j*( Avr0[2,:]@R0  + Vx[:,:nb0]@Avv0[2,::3] \
+                             + Vy[:,:nb0]@Avv0[2,1::3] \
+                             + Vz[:,:nb0]@Avv0[2,2::3] ) / kz0
+        # Right-hand side
+        if self.right_fluid is None or self.right_fluid == "Wall" :
+            kze,Ce = vec_zero,vec_zero
+        else : # External fluid
+            cur_layer = self.layers[-1]
+            ce = self.right_fluid.c            
+            kze = signs[1] * W * np.sqrt(1.0/ce**2-S**2)
+            if isinstance(cur_layer, FDLay) :
+                # Additional interfacial state vector [ Phi0 ]
+                Ce = VP[:,-1]
+            else : # First layer is solid
+                # Additional interfacial state vector rn (r_n^perp)
+                # -i*kze*Phin = Vnz = last component of Avrn@rn + Avvn@V
+                idx = LI[-1]
+                Rn = VP[:,idx[-1]+6:].transpose()
+                Vx,Vy,Vz = VP[:,idx+3],VP[:,idx+4],VP[:,idx+5]
+                matrices = cur_layer.FS_matrices_n( S, self.right_fluid, \
+                                                    signs[1])
+                _,_, Avrn, Avvn,_,_ = matrices
+                _,nbn = Avvn.shape
+                nbn //= 3
+                Ce = 1.0j*( Avrn[2,:]@Rn  + Vx[:,-nbn:]@Avvn[2,::3] \
+                             + Vy[:,-nbn:]@Avvn[2,1::3] \
+                             + Vz[:,-nbn:]@Avvn[2,2::3] ) / kze
+        # List of Plane_Guided_Mode instances
+        mode_instances = []
+        for i,(f,kx) in enumerate( zip(F, K) ) :
+            mode = [ (kz[i],C[i,:],err[i]) for kz,C,err in modes ]
+            mode.extend( [(kz0[i],C0[i]), (kze[i],Ce[i]) ] )
+            mode_instances.append( \
+                            Plane_Guided_Mode(self, f, kx, mode, \
+                                              normalized=normalized) )
+        return mode_instances  
+
+        return (G,F,K,VP)
+    #----------------------------------------------------------------------
+    def modes_for_given_phase_velocity(self, V_phi, signs=[1,1], \
+                                       rel_err=1e-4, normalized=True, \
+                                       verbose=False) :
+        try :
+            S = 1.0 / V_phi
+        except :
+            S = 1.0 / np.array( V_phi )
+        return self.modes_for_given_slowness(S, signs, rel_err, \
+                                             normalized, verbose)
+    #++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ 
     @staticmethod
     def take_first_indexes(A, nb, dtype="Frequency", epsilon=1e-3, \
                             by_imag=False, threshold_imag = 1.0, \
@@ -3929,7 +4055,7 @@ class DiscretizedMultilayerPlate :
                                           by_imag, threshold_imag) ]
             T.append( [i*np.ones_like(L[-1])] + L )
         return tuple( np.array(T).swapaxes(0,1) )
-    #--------------------------------------------------
+    #----------------------------------------------------------------------
     @staticmethod
     def take_first(T, nb, dtype="Frequency", epsilon=1e-3, \
                    check_opposite=True, array=None, \

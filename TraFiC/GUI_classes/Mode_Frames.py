@@ -1,4 +1,4 @@
-# Version 0.83 - 2023, December 18
+# Version 0.84 - 2024, February 19
 # Copyright (Eric Ducasse 2020)
 # Licensed under the EUPL-1.2 or later
 # Institution:  I2M / Arts & Metiers ParisTech
@@ -256,7 +256,7 @@ class Mode_Shape_Frame(Mode_Frame):
                 pass
             # Energy velocity
             if cur_mode.is_a_true_guided_mode :
-                self.__val_Ve.setText(f"{cur_mode.Vex:.3f}")
+                self.__val_Ve.setText(f"{cur_mode.Ve:.3f}")
             else :
                 self.__val_Ve.setText("(undefined)")
             self.__figure.set_mode( cur_mode )
@@ -1416,15 +1416,13 @@ class Dispersion_Curve_Frame(Mode_Frame):
             prt = print
         else :
             prt = lambda *args : None
-        # Note that the existence of 'head_file.txt' is not necessary
+        # Head file
         hfp = dir_path + "/head_file.txt"
         if os.path.isfile(hfp) :
             with open(hfp, "r") as strm :
                 hf_text = strm.read()
             prt(f"head_file.txt contents:\n{hf_text}")
-        else :
-            prt(f"Error: file 'head_file.txt' does not exist")
-            return False,""
+        # Note that the existence of 'head_file.txt' is not necessary
         LP = [ nm for nm in os.listdir(dir_path) if
                nm.endswith(".pckl") ]
         LP.sort()
@@ -1446,7 +1444,7 @@ class Dispersion_Curve_Frame(Mode_Frame):
                 def from_dict(dict_mode, ca=ca) :
                     freq = dict_mode['f_MHz']
                     k = dict_mode['k_mm^-1']
-                    energy_vel = dict_mode['Ve_mm/µs'][0]
+                    energy_vel = dict_mode['Ve_mm/µs']
                     phase_vel = dict_mode['Vph_mm/µs']
                     att = -k.imag*1e3*ca
                     return freq, [k.real,phase_vel,att,energy_vel] 
@@ -1458,7 +1456,7 @@ class Dispersion_Curve_Frame(Mode_Frame):
                 def from_dict(dict_mode, ca=ca) :
                     freq = dict_mode['f_MHz']
                     k = dict_mode['k_mm^-1']
-                    energy_vel = dict_mode['Ve_mm/µs'][0]
+                    energy_vel = dict_mode['Ve_mm/µs']
                     phase_vel = dict_mode['Vph_mm/µs']
                     att = -k.imag*1e3*ca
                     return freq, [phase_vel,att,energy_vel]
@@ -1481,7 +1479,7 @@ class Dispersion_Curve_Frame(Mode_Frame):
             def from_dict(dict_mode) :
                 freq = dict_mode['f_MHz']
                 k = dict_mode['k_mm^-1']
-                energy_vel = dict_mode['Ve_mm/µs'][0]
+                energy_vel = dict_mode['Ve_mm/µs']
                 phase_vel = dict_mode['Vph_mm/µs']
                 att = -freq.imag/phase_vel*1e3
                 return k, [freq,phase_vel,att,energy_vel]         
@@ -1497,7 +1495,7 @@ class Dispersion_Curve_Frame(Mode_Frame):
             def from_dict(dict_mode) :
                 freq = dict_mode['f_MHz']
                 k = dict_mode['k_mm^-1']
-                energy_vel = dict_mode['Ve_mm/µs'][0]
+                energy_vel = dict_mode['Ve_mm/µs']
                 phase_vel = dict_mode['Vph_mm/µs']
                 att = -k.imag*1e3
                 return phase_vel, [freq,att,energy_vel]
@@ -1544,12 +1542,7 @@ if __name__ == "__main__" :
     import matplotlib.pyplot as plt
     import os
     print(f"Current dir.: '{os.getcwd()}'")
-    #res_dir = "../Data/Results/bicouche_fluide/"
-    #res_dir = "../Data/Results/T800-913_1mm_plate/"
-    #res_dir = "../Data/Results/semi-immersed_aluminum_plate/"
-    res_dir = "../Data/Results/Nylon_2mm_air_water"
-    #res_dir = "../../Reviews/2022_JASA_Georgiades_Lowe_Craster/" + \
-    #          "Georgiades_plate_results/"
+    res_dir = "../Data/Results/Plexiglas_4mm"
     msg = res_dir+"\n\t"
     lsd = [ n for n in os.listdir(res_dir) \
                           if os.path.isdir(res_dir+"/"+n) ]
@@ -1562,7 +1555,6 @@ if __name__ == "__main__" :
         Dispersion_Curve_Frame.from_pickle_modes_to_csv(dp,V_digit=9, \
                                                         Neper_m=False, \
                                                         save_ReK=True)
-    # A MODIFIER => Vitesse d'énergie complexe Vex + i*Vey à mémoriser
     def flt(s) :
         if s == "" : return None
         return float(s)

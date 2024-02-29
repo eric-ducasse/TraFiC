@@ -1,10 +1,13 @@
-# Version 1.21 - 2023, July, 5
+# Version 1.3 - 2024, February, 14
 # Author : Eric Ducasse (coll. Aditya Krishna)
 # License : CC-BY-NC
 # Institution :  I2M / Arts & Metiers ParisTech
 # Program name : TraFiC (Transient Field Computation)
 # ====== Initialization ====================================================
-if __name__ == "__main__" : import TraFiC_init
+if __name__ == "__main__" :
+    import os, sys
+    sys.path.append( os.path.abspath("..") )
+    import TraFiC_init
 # ====== Material Classes ==================================================
 from MaterialClasses import  *
 # ====== Numerical tools ===================================================

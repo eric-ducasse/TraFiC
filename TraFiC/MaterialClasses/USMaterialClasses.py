@@ -4,7 +4,10 @@
 # Institution :  I2M / Arts & Metiers ParisTech
 # Program name : TraFiC (Transient Field Computation)
 # ====== Initialization ====================================================
-if __name__ == "__main__" : from TraFiC_init import *
+if __name__ == "__main__" :
+    import os, sys
+    sys.path.append( os.path.abspath("..") )
+    import TraFiC_init 
 # ====== Material Classes ==================================================
 from MaterialClasses import *
 # ====== Numerical tools ===================================================
