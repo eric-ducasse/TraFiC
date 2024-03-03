@@ -1,4 +1,4 @@
-# Version 1.1 - 2024, January 18
+# Version 1.11 - 2024, March, 2nd
 # Copyright (Eric Ducasse 2020)
 # Licensed under the EUPL-1.2 or later
 # Institution:  I2M / Arts & Metiers ParisTech
@@ -601,8 +601,11 @@ class FieldComputationInProgress :
                 elif cs :
                     blocks.append( "\n".join(rows[nb:n]) )
                     cs = False
-        if cs : # Last block            
-            blocks.append( "\n".join(rows[nb:]) )
+        if cs : # Last block
+            if len(blocks) < 4 :         
+                blocks.append( "\n".join(rows[nb:]) )
+            else : # tabulations for field computations
+                blocks.append( "\n\t".join(rows[nb:]) )
             cs = False
         stage = stages[-1]
         if not np.allclose( stages, np.arange(stage+1) ) :
@@ -960,19 +963,22 @@ class FieldComputation :
             max_memory_GB = min(max_memory_GB, self.__FCIP.MAXMEM)
             
         if mem_by_field > max_memory_GB :
-            msg += "Needed memory by field ~ {mem_by_field:.2f} GB." + \
-                   "\n\tToo big. Not yet implemented"
+            msg += f"Needed memory by field ~ {mem_by_field:.2f} GB." + \
+                    "\n\tToo big. Not yet implemented"
             raise ValueError(msg)
         fields_to_compute = tuple(fields_to_compute)
         nb_fld, nb_pos = len(fields_to_compute), len(normal_positions_mm)
-        max_cases = round( max_memory_GB //  mem_by_field )
+        max_cases = round( max_memory_GB // mem_by_field )
         nb_cases = nb_fld * nb_pos
-        self.prt(f"{nb_cases} / {max_cases} cases possible. ")
+        self.prt(f"{nb_cases} / {max_cases} cases possible.")
         #xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
         if nb_cases > max_cases : # Computation must be divided...
             nb_frac = round( np.ceil( nb_cases / max_cases ) )
             if nb_frac <= nb_pos : # ...with respect to position only
-                rzstp = round( mem_by_field*nb_fld // max_memory_GB )
+                # because nb_cases / max_cases <= nb_pos
+                #         nb_fld*mem_by_field <= max_memory_GB
+                # Number of normal positions by computation:
+                rzstp = round( max_memory_GB // (mem_by_field*nb_fld) )
                 for nrz in range(0, nb_pos, rzstp ) :
                     pos = normal_positions_mm[ nrz : nrz+rzstp ]
                     self.compute(fields_to_compute, pos)

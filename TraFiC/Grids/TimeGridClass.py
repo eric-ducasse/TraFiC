@@ -1,4 +1,4 @@
-# Version 1.23 - 2024, February, 29
+# Version 1.24 - 2024, March, 2nd
 # Copyright (Eric Ducasse 2020)
 # Licensed under the EUPL-1.2 or later
 # Institution :  I2M / Arts & Metiers ParisTech
@@ -62,10 +62,6 @@ class TimeGrid :
     def Ts(self) : 
         """Sampling Period."""
         return self.__dt
-    @property
-    def t0(self) : 
-        """Time Origin."""
-        return self.__t0
     @property
     def t0(self) : 
         """Time Origin."""
@@ -272,14 +268,19 @@ class TimeGrid :
     #-------------------------------------
     def enhance_causality(self, array, axis=0, method="least-squares", \
                           alpha=1.0, nb=3, threshold=1e-4,
-                          zero_valued=1e-8, verbose = False):
+                          zero_valued=1e-8, verbose = False, \
+                          with_exp_window=False):
         add_values = TimeGrid.add_values_for_enhance_causality
         shp = array.shape
         if shp[axis] != self.nt :
             msg = "TimeGrid.enhance_causality :: Error:\n\t" + \
                  f"Incompatible sizes {self.nt} <=> {shp[axis]}."
             raise ValueError(msg)
-        if len(shp) == 1 : # Vector
+        if with_exp_window :
+            vew = np.exp(-self.gamma*self.T)
+        if len(shp) == 1 : # Vector            
+            if with_exp_window :
+                array = vew * array
             values, ib1, n = TimeGrid.clean_values(array, zero_valued)
             nbmax = min(12, ib1//3)
             values, ib2, rel_err = add_values(values, method, False, \
@@ -288,12 +289,16 @@ class TimeGrid :
                                               verbose)
             idx_beg = ib1+ib2
             new_array = np.zeros_like( array )
-            new_array[idx_beg:idx_beg+values.shape[0]] = values
+            new_array[idx_beg:idx_beg+values.shape[0]] = values           
+            if with_exp_window :
+                new_array /= vew
             return new_array, rel_err
         # ndim > 1
         tab = array.swapaxes( axis, -1 ) 
         orig_shape = tab.shape
-        tab.shape = ( np.prod(orig_shape[:-1]), orig_shape[-1] )
+        tab.shape = ( np.prod(orig_shape[:-1]), orig_shape[-1] )           
+        if with_exp_window :
+            tab = tab * vew
         rel_err = 0.0
         for i,row in enumerate(tab) :
             values, ib1, n = TimeGrid.clean_values(row, zero_valued)
@@ -305,7 +310,9 @@ class TimeGrid :
             row = np.zeros_like( row )
             row[idx_beg:idx_beg+values.shape[0]] = values
             tab[i,:] = row
-            rel_err = max(rel_err, re)
+            rel_err = max(rel_err, re)           
+        if with_exp_window :
+            tab = tab / vew
         tab.shape = orig_shape 
         return tab.swapaxes( axis, -1 ), rel_err
     #-------------------------------------
@@ -447,7 +454,7 @@ if __name__ == "__main__" :
         plt.plot(zpg.T,-sig_env,"--b")
         plt.show()
     # Test of add_values_for_enhance_causality (static method)
-    if False :
+    if True :
         values = [0.1,0.4,1.0,0.2,-0.9,-0.3,-0.1]
         nb_val = len(values)
         idx0 = 50
@@ -469,15 +476,26 @@ if __name__ == "__main__" :
         new_values[idx0+idx_beg:idx0+idx_beg+new_val.shape[0]] = new_val
         _, zp_new_values = tm_gd.zero_padding(new_values, 9.0)
         for ax,c in axes : 
-            ax.plot(tm_zp.T, c*zp_new_values, "--g")
+            ax.plot(tm_zp.T, c*zp_new_values, "--c")
             ax.plot(tm_gd.T, c*new_values, "dc", markersize = 4)
         nv1, err1 = tm_gd.enhance_causality( all_values )
         for ax,c in axes : 
             ax.plot(tm_gd.T, c*nv1, "om", markersize = 1.5)
         nv2, err2 = tm_gd.enhance_causality( \
-                       all_values.reshape(all_values.shape+(1,1))  )
+                       all_values.reshape(all_values.shape+(1,1)))
         for ax,c in axes :
             ax.plot(tm_gd.T, c*nv2[:,0,0], "+m", markersize = 3.0)
+        nv3, err3 = tm_gd.enhance_causality( all_values, \
+                                             with_exp_window=True)
+        _, zp_nv3 = tm_gd.zero_padding(nv3, 9.0)
+        for ax,c in axes : 
+            ax.plot(tm_zp.T, c*zp_nv3, ":g")
+            ax.plot(tm_gd.T, c*nv3, "^g", markersize = 4.0)
+        nv4, err4 = tm_gd.enhance_causality( \
+                       all_values.reshape(all_values.shape+(1,1)), \
+                                             with_exp_window=True)
+        for ax,c in axes :
+            ax.plot(tm_gd.T, c*nv4[:,0,0], "xb", markersize = 5.0)
             ax.set_xlim(-idx0-0.5, 10)
             ax.grid()
         axes[0][0].set_title("All values")
