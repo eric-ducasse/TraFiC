@@ -1,4 +1,4 @@
-# Version 0.98 - 2024, February, 19
+# Version 0.98 - 2024, March 13
 # Copyright (Eric Ducasse 2020)
 # Licensed under the EUPL-1.2 or later
 # Institution :  I2M / Arts & Metiers ParisTech
@@ -1003,7 +1003,7 @@ class SolidDiscretizedLayer(GeneralDiscretizedLayer) :
             c0,rho0 = left_fluid.c,left_fluid.rho
             if abs(S*c0-1.0) < 1e-5 : # Degenerate case: S ~ 1/c0
                 return None
-            tau0 = np.sqrt(complex(1.0/c0**2-S**2))
+            tau0 = np.sqrt( np.complex128(1.0/c0**2-S**2) )
             if abs(tau0.real)<1e-10*abs(tau0.imag) :
                 tau0 = -1.0j*abs(tau0.imag)
             M[:,-1] += sign*rho0/(S*tau0)*B0[:,-1]
@@ -1029,7 +1029,7 @@ class SolidDiscretizedLayer(GeneralDiscretizedLayer) :
             cn,rhon = right_fluid.c,right_fluid.rho
             if abs(S*cn-1.0) < 1e-5 : # Degenerate case: S ~ 1/cn
                 return None
-            taun = np.sqrt(complex(1.0/cn**2-S**2))
+            taun = np.sqrt( np.complex128(1.0/cn**2-S**2) )
             if abs(taun.real)<1e-10*abs(taun.imag) :
                 taun = -1.0j*abs(taun.imag)
             M[:,-1] += -sign*rhon/(S*taun)*Bn[:,-1]
@@ -3328,7 +3328,7 @@ class DiscretizedMultilayerPlate :
                 ######################
                 c0,rho0 = self.left_fluid.c,self.left_fluid.rho
                 h = self.layers[0].h
-                t0 = signs[0]*np.sqrt(1.0/c0**2-S**2)
+                t0 = signs[0]*np.sqrt( np.complex128(1.0/c0**2-S**2) )
                 di,_ = C0.shape
                 # phi0
                 G[1:1+di,:1] += C0[:,:1]
@@ -3401,7 +3401,7 @@ class DiscretizedMultilayerPlate :
                 ######################
             ce,rhoe = self.right_fluid.c,self.right_fluid.rho
             h = self.layers[-1].h
-            te = signs[-1]*np.sqrt(1.0/ce**2-S**2)
+            te = signs[-1]*np.sqrt( np.complex128(1.0/ce**2-S**2) )
             di,_ = Cn.shape
             # phie
             G[-1-di:-1,-1:] += Cn[:,:1]
@@ -3915,7 +3915,8 @@ class DiscretizedMultilayerPlate :
         else : # External fluid
             cur_layer = self.layers[0]
             c0 = self.left_fluid.c            
-            kz0 = signs[0] * W * np.sqrt(1.0/c0**2-S**2)
+            kz0 = signs[0] * -1.0j * W * \
+                  np.sqrt( (1.0+0.0j)*(S**2-1.0/c0**2))
             if isinstance(cur_layer, FDLay) :
                 # Additional interfacial state vector [ Phi0 ]
                 C0 = VP[:,0]
@@ -3938,12 +3939,13 @@ class DiscretizedMultilayerPlate :
             kze,Ce = vec_zero,vec_zero
         else : # External fluid
             cur_layer = self.layers[-1]
-            ce = self.right_fluid.c            
-            kze = signs[1] * W * np.sqrt(1.0/ce**2-S**2)
+            ce = self.right_fluid.c
+            kze = signs[1] * -1.0j * W * \
+                  np.sqrt( (1.0+0.0j)*(S**2-1.0/ce**2))
             if isinstance(cur_layer, FDLay) :
                 # Additional interfacial state vector [ Phi0 ]
                 Ce = VP[:,-1]
-            else : # First layer is solid
+            else : # Last layer is solid
                 # Additional interfacial state vector rn (r_n^perp)
                 # -i*kze*Phin = Vnz = last component of Avrn@rn + Avvn@V
                 idx = LI[-1]
@@ -3965,9 +3967,7 @@ class DiscretizedMultilayerPlate :
             mode_instances.append( \
                             Plane_Guided_Mode(self, f, kx, mode, \
                                               normalized=normalized) )
-        return mode_instances  
-
-        return (G,F,K,VP)
+        return mode_instances
     #----------------------------------------------------------------------
     def modes_for_given_phase_velocity(self, V_phi, signs=[1,1], \
                                        rel_err=1e-4, normalized=True, \
@@ -4221,12 +4221,12 @@ if __name__ == "__main__" :
                           ) for n in range(nb) ]
             elif my_plate1.left_fluid is None and \
                  my_plate1.right_fluid is None :
-                VKx = [ -1j*np.sqrt( \
-                            (-1+0j)*(kc**2 - (n*np.pi/my_plate1.e)**2) \
+                VKx = [ -1j*np.sqrt( (-1+0j) * \
+                            (kc**2 - (n*np.pi/my_plate1.e)**2) \
                           ) for n in range(1,nb+1) ]
             else :
-                VKx = [ -1j*np.sqrt( \
-                            (-1+0j)*(kc**2 - ((n+0.5)*np.pi/my_plate1.e)**2) \
+                VKx = [ -1j*np.sqrt( (-1+0j) * \
+                            (kc**2 - ((n+0.5)*np.pi/my_plate1.e)**2) \
                           ) for n in range(nb) ]
             for kx1,kx2,kxth in zip(T1,T2,VKx) :
                 msg+= "\n"

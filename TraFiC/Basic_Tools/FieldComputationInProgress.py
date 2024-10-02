@@ -1,4 +1,4 @@
-# Version 1.11 - 2024, March, 2nd
+# Version 1.12 - 2024, October, 2nd
 # Copyright (Eric Ducasse 2020)
 # Licensed under the EUPL-1.2 or later
 # Institution:  I2M / Arts & Metiers ParisTech
@@ -37,27 +37,27 @@ class FieldComputationInProgress :
     MAXMEM = min(MAXMEM, AVAILABLERAM)
     FNAME = "Computation_in_progress.txt"
     LINESIZE = USMultilayerPlate.LINESIZE
-    STAGES = ["Creation", \
-              "Definition of the computation parameters", \
-              "Definition of the structure", \
-              "Computation of the Green tensors", \
+    STAGES = ["Creation",
+              "Definition of the computation parameters",
+              "Definition of the structure",
+              "Computation of the Green tensors",
               "Ready for field computations for given sources" ]
-    INAMES = {0: "Wall/Fluid", 1: "Vacuum/Fluid" , 2: "Fluid/Fluid", \
+    INAMES = {0: "Wall/Fluid", 1: "Vacuum/Fluid" , 2: "Fluid/Fluid",
               3: "Vacuum/Solid", 4: "Fluid/Solid", 6: "Solid/Solid"}
-    PLATEDS = {0: (("Uz",),), 1: (("Fz","Szz"),), \
-               2: (("Uz",), ("Fz","Szz")), \
-               3: (("Fx","Sxz"), ("Fy","Syz"), ("Fz","Szz")), \
-               4: (("Uz",), ("Fx","Sxz"), ("Fy","Syz"), ("Fz","Szz")), \
-               6: (("Ux",), ("Uy",), ("Uz",), ("Fx","Sxz"), \
+    PLATEDS = {0: (("Uz",),), 1: (("Fz","Szz"),),
+               2: (("Uz",), ("Fz","Szz")),
+               3: (("Fx","Sxz"), ("Fy","Syz"), ("Fz","Szz")),
+               4: (("Uz",), ("Fx","Sxz"), ("Fy","Syz"), ("Fz","Szz")),
+               6: (("Ux",), ("Uy",), ("Uz",), ("Fx","Sxz"),
                    ("Fy","Syz"), ("Fz","Szz")) }
-    PIPEDS  = {0: (("Ur",),), 1: (("Fr","Srr"),), \
-               2: (("Ur",), ("Fr","Srr")), \
-               3: (("Fr","Srr"), ("Fa","Sra"), ("Fz","Srz")), \
-               4: (("Ur",), ("Fr","Srr"), ("Fa","Sra"), ("Fz","Srz")), \
-               6: (("Ur",), ("Ua",), ("Uz",), ("Fr","Srr"), \
+    PIPEDS  = {0: (("Ur",),), 1: (("Fr","Srr"),),
+               2: (("Ur",), ("Fr","Srr")),
+               3: (("Fr","Srr"), ("Fa","Sra"), ("Fz","Srz")),
+               4: (("Ur",), ("Fr","Srr"), ("Fa","Sra"), ("Fz","Srz")),
+               6: (("Ur",), ("Ua",), ("Uz",), ("Fr","Srr"),
                    ("Fa","Sra"), ("Fz","Srz")) }
     #---------------------------------------------------------------------
-    def __init__(self, comp_params_or_path, structure=None, \
+    def __init__(self, comp_params_or_path, structure=None,
                  cylindrically_symmetric=False, verbose=False) :
         msg = "FieldComputationInProgress constructor :: "
         # Verbose or not
@@ -72,8 +72,8 @@ class FieldComputationInProgress :
             # Computation parameters
             comput_params = comp_params_or_path
             if not isinstance( comput_params, ComputationParameters ) :
-                msg += "Error:\n\tThe 1st parameter is not a " + \
-                       "'ComputationParameters'\n\tinstance."
+                msg += ("Error:\n\tThe 1st parameter is not a "
+                        + "'ComputationParameters'\n\tinstance.")
                 raise ValueError(msg)
             self.__CP = comput_params
             # Multilayer structure
@@ -84,18 +84,18 @@ class FieldComputationInProgress :
                 self.__case = "Pipe"
                 self.__DS = self.PIPEDS
             else :
-                msg += "Error:\n\tThe 2nd parameter is neither a " + \
-                       "'USMultilayerPlate' nor a" + \
-                       "\n\t'USMultilayerPipe' instance."
+                msg += ("Error:\n\tThe 2nd parameter is neither a "
+                        + "'USMultilayerPlate' nor a"
+                        + "\n\t'USMultilayerPipe' instance.")
                 raise ValueError(msg)
             self.__MS = structure # Format for US structure
-            self.__fmt_struc_file_path = \
-                            os.path.join(self.Green_tensor_path,
-                                         self.__case + "_{}.pckl")
+            self.__fmt_struc_file_path = (
+                os.path.join(self.Green_tensor_path,
+                             self.__case + "_{}.pckl"))
             # Head file exists?
             if os.path.isfile( self.head_file_path ) :
-                msg += f"Warning:\n\tComputation '{self.label}' " + \
-                       "already started."
+                msg += (f"Warning:\n\tComputation '{self.label}' "
+                        + "already started.")
                 prt( msg )
                 self.update_from_file( ) # Update with check
             else :
@@ -126,7 +126,7 @@ class FieldComputationInProgress :
         if additional_text2 != "" :
             self.__text += additional_text2 + "\n"            
     #---------------------------------------------------------------------
-    def __update_partition(self) :
+    def __update_partition(self, stored_parts=None) :
         """For computation partitioning. Update attributes:
                unit_needed_size: size for one value of s and k
                parts: list of different parts
@@ -151,8 +151,8 @@ class FieldComputationInProgress :
                                         # and normal wavevectors
         self.__unit_needed_size = 16*( nbc + nbc*nbc + nbpw*7 )
         max_mem = self.MAXMEM
-        nb_max = round( np.floor( max_mem * self.GIGA / \
-                                      self.__unit_needed_size ) )
+        nb_max = round( np.floor( max_mem * self.GIGA
+                                  / self.__unit_needed_size ) )
         prt(f"{msg}\nnb_max: {nb_max}")
         # Maximum number of cases for each record
         ns = self.__CP.ns # Number of complex Laplace values s
@@ -172,30 +172,34 @@ class FieldComputationInProgress :
                     # Partioning on y
                     nb_frac_ny = round(np.ceil(self.__CP.ny/nb_max))
                     nb_frac = self.__CP.nx*nb_frac_ny
-                    self.__part_case = ("Part. on y", nb_frac, \
+                    self.__part_case = ("Part. on y", nb_frac,
                                         (nb_frac_ny, nb_max) )
-                    slices = [ (slice(js,js+1), slice(jy,jy+nb_max), \
-                                slice(jx,jx+1)) for js in range(ns) \
-                               for jx in range(self.__CP.nx) \
-                               for jy in range(0, self.__CP.ny, nb_max) ]
+                    slices = [ (slice(js,js+1), slice(jy,jy+nb_max),
+                                slice(jx,jx+1))
+                               for js in range(ns)
+                               for jx in range(self.__CP.nx)
+                               for jy in range(0, self.__CP.ny, nb_max)
+                               ]
                 else :
                     # Partioning on x
                     nb_frac = round(np.ceil(self.__CP.nx/nbx_max))
-                    self.__part_case = ("Part. on x", nb_frac, \
+                    self.__part_case = ("Part. on x", nb_frac,
                                         (nb_frac, nbx_max) )
-                    slices = [ (slice(js,js+1), slice(None), \
-                                slice(jx,jx+nbx_max)) \
-                               for js in range(ns) \
-                               for jx in range(0, self.__CP.nx, nbx_max) ]
+                    slices = [ (slice(js,js+1), slice(None),
+                                slice(jx,jx+nbx_max))
+                               for js in range(ns)
+                               for jx in range(0, self.__CP.nx, nbx_max)
+                               ]
             else : # 2d
                 nb_frac = round(np.ceil(nx/nb_max))
-                self.__part_case = ("Part. on x", nb_frac, \
-                                        (nb_frac, nb_max) )
-                slices = [ (slice(js,js+1), slice(jx,jx+nb_max)) \
-                               for js in range(ns) \
-                               for jx in range(0, nx, nb_max) ]
-            msg += "Warning:\n\tNot enough memory for a single " + \
-                  f"s value.\n\tMust be divided into {nb_frac} parts."
+                self.__part_case = ("Part. on x", nb_frac,
+                                    (nb_frac, nb_max) )
+                slices = [ (slice(js,js+1), slice(jx,jx+nb_max))
+                           for js in range(ns)
+                           for jx in range(0, nx, nb_max)
+                           ]
+            msg += (f"Warning:\n\tNot enough memory for a single s "
+                    + f"value.\n\tMust be divided into {nb_frac} parts.")
             prt(msg)
             parts = []
             nbd = round( np.floor( np.log10(nb_frac) ) ) + 1
@@ -208,11 +212,11 @@ class FieldComputationInProgress :
             parts = [ fmts.format(n) for n in range(ns) ]
             self.__part_case = ("Part. on s", (ns, 1), None )
             if self.__CP.is_3d :
-                slices = [ (slice(js,js+1), slice(None), slice(None)) \
-                                                    for js in range(ns) ]
+                slices = [ (slice(js,js+1), slice(None), slice(None))
+                           for js in range(ns) ]
             else : # 2d
-                slices = [ (slice(js,js+1), slice(None)) \
-                                                    for js in range(ns) ]
+                slices = [ (slice(js,js+1), slice(None))
+                           for js in range(ns) ]
         elif ns <= nbs_max : # A single computation
             parts = [ fmts.format(0) + "to" + fmts.format(ns-1) ]
             self.__part_case = ("No part.", None, None )
@@ -223,23 +227,34 @@ class FieldComputationInProgress :
         else :
             nb_parts = round( np.ceil(ns/nbs_max) )
             nbsm1 = nbs_max - 1
-            parts = [ fmts.format(i) + "to" + fmts.format(i+nbsm1) \
-                                for i in range(0,ns-nbs_max,nbs_max) ]
+            parts = [ fmts.format(i) + "to" + fmts.format(i+nbsm1)
+                      for i in range(0,ns-nbs_max,nbs_max) ]
             b = len(parts) * nbs_max
             parts.append(fmts.format(b) + "to" + fmts.format(ns-1))
             self.__part_case = ("Part. on s", (nb_parts, nbs_max), None )
             if self.__CP.is_3d :
-                slices = [ (slice(js,js+nbs_max), slice(None), \
+                slices = [ (slice(js,js+nbs_max), slice(None),
                             slice(None)) for js in range(0, ns, nbs_max) ]
             else : # 2d
-                slices = [ (slice(js,js+nbs_max), slice(None)) \
-                                         for js in range(0, ns, nbs_max) ]
+                slices = [ (slice(js,js+nbs_max), slice(None))
+                           for js in range(0, ns, nbs_max) ]
         self.__parts = parts
+        if stored_parts is  not None :
+            if parts != stored_parts :
+                msg += ("Error: the stored partition:\n\t\t"
+                        + f"{stored_parts}\n\tdiffers from the computed"
+                        + f" one:\n\t\t{parts}.\n\tPlease remove old "
+                        + "files before computation.")
+                raise ValueError(msg)
         self.__slices = slices
-        self.prt(f"self.__parts: {len(self.__parts)} elements\n" + \
-                 f"{self.__parts[:3]}\n   [...]\n{self.__parts[-3:]}")
-        self.prt(f"self.__slices: {len(self.__slices)} elements\n" + \
-                 f"{self.__slices[:3]}\n   [...]\n{self.__slices[-3:]}")
+        if len(self.__parts) < 7 :
+            prt(f"self.__parts:", self.__parts)
+            prt(f"self.__slices:", self.__slices)
+        else :
+            prt(f"self.__parts: {len(self.__parts)} elements\n"
+                + f"{self.__parts[:3]}\n   [...]\n{self.__parts[-3:]}")
+            prt(f"self.__slices: {len(self.__slices)} elements\n"
+                + f"{self.__slices[:3]}\n   [...]\n{self.__slices[-3:]}")
     #---------------------------------------------------------------------
     def save( self ) :        
         with open( self.head_file_path, "w", encoding="utf8" ) as strm :
@@ -310,13 +325,13 @@ class FieldComputationInProgress :
                         rank = r
                         break
                 if rank is None : # Error
-                    msg += f"Error:\n\t'{S}' is not in " + \
-                           f"{self.__DS[nbv]} ({self.INAMES[nbv]} " + \
-                            "interface)."
+                    msg += (f"Error:\n\t'{S}' is not in "
+                            + f"{self.__DS[nbv]} ({self.INAMES[nbv]} "
+                            + "interface).")
                     raise ValueError(msg)
-                new_text +=  f"\t'{S}' in interface #{I}: " + \
-                             f"rank {rank} in [{r0}, {r1-1}] " + \
-                             f"({self.INAMES[nbv]}).\n"                
+                new_text += (f"\t'{S}' in interface #{I}: "
+                             + f"rank {rank} in [{r0}, {r1-1}] "
+                             + f"({self.INAMES[nbv]}).\n")               
             new_text += f"Maximum memory: {self.MAXMEM:.2f} GB\n"
             nbp = len(self.__parts)
             new_text += f"{nbp} case"
@@ -331,40 +346,40 @@ class FieldComputationInProgress :
                 prt(new_text)
             else :
                 rows = new_text.split("\n")
-                prt("\n".join(rows[:-nbp+4]) + \
-                    "\n   [...]\n" + \
-                    "\n".join(rows[-3:]))
+                prt("\n".join(rows[:-nbp+4])
+                    + "\n   [...]\n"
+                    + "\n".join(rows[-3:]))
             self.__text += new_text
             self.save()
         self.pick_up_Green_tensor_computation()
     #---------------------------------------------------------------------
     def pick_up_Green_tensor_computation( self ) :
-        msg = "FieldComputationInProgress.pick_up_Green_tensor_" + \
-              "computation\n:: Error:\n\t"
+        msg = ("FieldComputationInProgress.pick_up_Green_tensor_"
+               + "computation\n:: Error:\n\t")
         prt = self.__prt
         if self.__stage == 4 :
-            prt("FieldComputationInProgress.pick_up_Green_tensor_" + \
-                "computation\n:: Already done!")
+            prt("FieldComputationInProgress.pick_up_Green_tensor_"
+                + "computation\n:: Already done!")
             return
-        prt("Beginning of FieldComputationInProgress." + \
-            "pick_up_Green_tensor_computation\n" + \
-            f"self.__stage: {self.__stage}")
+        prt("Beginning of FieldComputationInProgress."
+            + "pick_up_Green_tensor_computation\n"
+            + f"self.__stage: {self.__stage}")
         # Updating parameters from self.__text
         rows = self.__text.split("\n")
         # Excitations
         # private attributes exc_numbers and fmt_coef_file_pathes
         nbp, rbp = self.__update_exc_from_text(rows)
         if nbp < 7 :
-            prt("rows:\n" + "\n".join( [f"{no:3d} {r}" for no,r in \
+            prt("rows:\n" + "\n".join( [f"{no:3d} {r}" for no,r in
                                         enumerate(rows)]))
         else :
-            prt("rows:\n" + "\n".join( [f"{no:3d} {r}" for no,r in \
-                                        enumerate(rows[:-nbp+4])]) + \
-                "\n   [...]\n" + \
-                "\n".join( [f"{no:3d} {r}" for no,r in \
-                            enumerate(rows[-3:], len(rows)-3)]))
-        prt(f"nbp {nbp}, rbp {rbp}\n" + \
-            f"self.__fmt_coef_file_pathes '{self.__fmt_coef_file_pathes}'")
+            prt("rows:\n" + "\n".join( [f"{no:3d} {r}" for no,r in
+                                        enumerate(rows[:-nbp+4])])
+                + "\n   [...]\n"
+                + "\n".join( [f"{no:3d} {r}" for no,r in
+                              enumerate(rows[-3:], len(rows)-3)]))
+        prt(f"nbp {nbp}, rbp {rbp}\nself.__fmt_coef_file_pathes"
+            +f" '{self.__fmt_coef_file_pathes}'")
         exc_numbers = self.__exc_numbers
         # Successive cases
         parts_info = []
@@ -374,11 +389,11 @@ class FieldComputationInProgress :
                 msg += f"Error:\n\t'{rpart}' != '{part}'"
                 raise ValueError(msg)
             parts_info.append( state )
-        if nbp < 7 : prt(f"parts_info ({len(parts_info)} elements):" + \
-                         f"\n{parts_info}")
-        else : prt(f"parts_info ({len(parts_info)} elements):\n" + \
-                   f"{parts_info[:-nbp+4]}\n" + \
-                   f"   [...]\n{parts_info[-3:]}")
+        if nbp < 7 : prt(f"parts_info ({len(parts_info)} elements):"
+                         + f"\n{parts_info}")
+        else : prt(f"parts_info ({len(parts_info)} elements):\n"
+                   + f"{parts_info[:-nbp+4]}\n"
+                   + f"   [...]\n{parts_info[-3:]}")
         # Partitioning the vectors Vs and Vk
         # Complex Laplace values
         ns = self.__CP.ns
@@ -393,8 +408,8 @@ class FieldComputationInProgress :
             ny = self.__CP.ny
             Vkx = space_gd.Kx
             Vky = space_gd.Ky
-            prt(f"Vkx: {Vkx[:3]}\n        [...]\n     {Vkx[-3:]}\n" + \
-                f"Vky: {Vky[:3]}\n        [...]\n     {Vky[-3:]}")
+            prt(f"Vkx: {Vkx[:3]}\n        [...]\n     {Vkx[-3:]}\n"
+                + f"Vky: {Vky[:3]}\n        [...]\n     {Vky[-3:]}")
             if pt == "No part." : # a single computation
                 LSK = [[Vs, Vkx, Vky]]
             elif pt == "Part. on s" :
@@ -424,12 +439,12 @@ class FieldComputationInProgress :
         last_part[-1] = True
         # Computation 
         fmt_struc_file_path = self.__fmt_struc_file_path
-        for r,(state, part, SK, lp) in \
-          enumerate(zip(parts_info, self.__parts, LSK, last_part), rbp) :
+        for r,(state, part, SK, lp) in enumerate(
+                zip(parts_info, self.__parts, LSK, last_part), rbp):
             done = False
             struct_path = fmt_struc_file_path.format(part)
             struct_file_exists = os.path.isfile(struct_path)
-            exc_paths = [ fmt.format(part) for fmt \
+            exc_paths = [ fmt.format(part) for fmt
                           in self.__fmt_coef_file_pathes ]
             exc_paths_exist = [ os.path.isfile(p) for p in exc_paths ]
             if "to do" not in state :
@@ -451,12 +466,12 @@ class FieldComputationInProgress :
             if struct_file_exists :
                 with open(struct_path, "br") as strm :
                     cur_struct = pickle.load(strm)
-                ok = cur_struct.write_in_file() == \
-                                                 self.__MS.write_in_file()
+                ok = (cur_struct.write_in_file()
+                      == self.__MS.write_in_file())
                 if ok :
                     dur = time()-beg
-                    prt(f'\t[{dur:.1f}"]' + \
-                        f"'{os.path.basename(struct_path)}' loaded.")
+                    prt(f'\t[{dur:.1f}"]'
+                        + f"'{os.path.basename(struct_path)}' loaded.")
             if not struct_file_exists or not ok :
                 dur = time()-beg
                 prt(f'\t[{dur:.1f}"] Loading the s and k values...')
@@ -465,8 +480,8 @@ class FieldComputationInProgress :
                 with open(struct_path, "bw") as strm :
                     pickle.dump(cur_struct, strm)
                 dur = time()-beg
-                prt(f'\t[{dur:.1f}"]' + \
-                    f"'{os.path.basename(struct_path)}' saved.")
+                prt(f'\t[{dur:.1f}"]'
+                    + f"'{os.path.basename(struct_path)}' saved.")
             dur = time()-beg
             prt(f'\t[{dur:.1f}"] Building the M matrix...')
             cur_struct.rebuildM( forced=True )
@@ -499,17 +514,17 @@ class FieldComputationInProgress :
                 if dif[idx] <  0.1 * self.__CP.space_grid.dk :
                     SRC_K[idx] = 0.0 # k = k_max
                 USRC = np.einsum("i,j->ij",SRC_S,SRC_K)
-            for done, path, (_,_,rank) in \
-                            zip(exc_paths_exist, exc_paths, exc_numbers) :
+            for done, path, (_,_,rank) in zip(
+                    exc_paths_exist, exc_paths, exc_numbers) :
                 if done :
                     dur = time()-beg
-                    print(f'\t[{dur:.1f}"] ' + \
-                          f"'{os.path.basename(path)}' already done.")
+                    print(f'\t[{dur:.1f}"] '
+                          + f"'{os.path.basename(path)}' already done.")
                     continue
                 dur = time()-beg
-                print(f'\t[{dur:.1f}"] ' + \
-                      f"Computing '{os.path.basename(path)}'...")
-                B = np.zeros( (cur_struct.M.shape)[:-1] , \
+                print(f'\t[{dur:.1f}"] '
+                      + f"Computing '{os.path.basename(path)}'...")
+                B = np.zeros( (cur_struct.M.shape)[:-1] ,
                               dtype = np.complex128 )
                 B[..., rank] = USRC # rank characterizes the nature and
                                     # the position of the excitation
@@ -529,8 +544,8 @@ class FieldComputationInProgress :
         self.__stage = 4
         self.__text += "\n" + self.stage_text(4)
         self.save()
-        prt("End of FieldComputationInProgress." + \
-            "pick_up_Green_tensor_computation")
+        prt("End of FieldComputationInProgress."
+            + "pick_up_Green_tensor_computation")
     #---------------------------------------------------------------------
     def __update_exc_from_text( self, rows ) :
         """Updates the private attributes exc_numbers and
@@ -558,9 +573,9 @@ class FieldComputationInProgress :
         nbdi = round( np.floor( np.log10(len(self.__MS.layers)) ) ) + 1
         fmti = "_interface{:0" + f"{nbdi}" + "d}.npy"
         for S,I,_ in exc_numbers :
-            self.__fmt_coef_file_pathes.append( \
-                    os.path.join(self.Green_tensor_path,
-                                 "Coef_{}_" + f"{S}" + fmti.format(I)) )
+            self.__fmt_coef_file_pathes.append(
+                os.path.join(self.Green_tensor_path,
+                             "Coef_{}_" + f"{S}" + fmti.format(I)) )
         self.__fmt_coef_file_pathes = tuple(self.__fmt_coef_file_pathes)
         return nbp, rbp
     #---------------------------------------------------------------------
@@ -617,10 +632,10 @@ class FieldComputationInProgress :
         self.__CP = ComputationParameters.from_head_text(blocks[1])
         if check :
             if old_CP.head_text != self.__CP.head_text :
-                msg += "Error:\n\tThe new and old computation " + \
-                       "parameters differ.\n\tPlease check the "+ \
-                       "existing file and delete it for a new "+ \
-                       "computation."
+                msg += ("Error:\n\tThe new and old computation "
+                        + "parameters differ.\n\tPlease check the "
+                        + "existing file and delete it for a new "
+                        + "computation.")
                 raise ValueError(msg)
         if "plate" in blocks[2].lower() :
             self.__case = "Plate"
@@ -630,18 +645,42 @@ class FieldComputationInProgress :
             self.__case = "Pipe"
             self.__MS = USMultilayerPipe.import_from_text(blocks[2])
             self.__DS = self.PIPEDS
-        self.__fmt_struc_file_path = \
-                            os.path.join(self.Green_tensor_path,
-                                         self.__case + "_{}.pckl")        
+        self.__fmt_struc_file_path = os.path.join(
+                self.Green_tensor_path,
+                self.__case + "_{}.pckl")        
         if check :
             if old_MS.write_in_file() != self.__MS.write_in_file() :
-                msg += "Error:\n\tThe new and old computation " + \
-                       "parameters differ.\n\tPlease check the "+ \
-                       "existing file and delete it for a new "+ \
-                       "computation."
+                msg += ("Error:\n\tThe new and old computation "
+                        + "parameters differ.\n\tPlease check the "
+                        + "existing file and delete it for a new "
+                        + "computation.")
                 raise ValueError(msg)
-        # For computation partitioning
-        self.__update_partition()
+        # ++++ For computation partitioning ++++++++++++++++++++++++++++++
+        stored_parts = None
+        if len(blocks) > 3 : # New in version >= 1.12
+                             # (fixed bug on memory)
+            memory_GB = None
+            stored_parts = []
+            for row in blocks[3].split("\n") :
+                if row.startswith("Maximum memory:") :
+                    memory_GB = float(row.split()[2])
+                    prt(f"Stored memory: {memory_GB:.2f} GB")
+                    if not np.isclose(self.MAXMEM, memory_GB):
+                        if memory_GB > self.AVAILABLERAM :
+                            msg += ("Warning:\n\tThe saved memory "
+                                    + f"{memory_GB:.2f} GB is greater than"
+                                    + " the available memory "
+                                    + f"{self.AVAILABLERAM} GB!")
+                            print(msg)
+                        prt("The maximum memory has been replaced by"
+                            + " the saved value:\n\t"
+                            + f"{self.MAXMEM:.2f} GB -> {memory_GB:.2f}"
+                            + " GB")
+                        self.MAXMEM = memory_GB
+                elif " - done" in row :
+                    stored_parts.append(row.split(" - done")[0])
+            prt("stored_parts:", stored_parts)
+        self.__update_partition(stored_parts)
         # +++++++++ Started Green tensor computation? ++++++++++++++++++++
         prt("stage :", self.__stage)
         if self.__stage == 2 :
@@ -653,8 +692,8 @@ class FieldComputationInProgress :
                 prt("The Green tensor computation is in progress...")
                 self.pick_up_Green_tensor_computation()
             else : # self.__stage == 4
-                prt("The Green tensor computation is finished.\n" + \
-                    "Ready for field computations.")
+                prt("The Green tensor computation is finished.\n"
+                    + "Ready for field computations.")
                 rows3 = [ r.strip() for r in blocks[3].split("\n") ]
                 self.__update_exc_from_text( rows3 )
                 if len(blocks) == 4 : # No Field computation
@@ -675,8 +714,9 @@ class FieldComputationInProgress :
                         labels = [ r.strip() for r in rows[rb:] ]
                         labels = [ r for r in labels if len(r)>0 ]
                         for lbl in labels :
-                            self.__FC_dict[lbl] = \
-                                            FieldComputation(self, lbl)
+                            self.__FC_dict[lbl] = FieldComputation(
+                                                        self,
+                                                        lbl)
                     else : # Should not happend
                         self.__FC_dict = None
                         self.__update_text( blocks[3] )
@@ -686,7 +726,7 @@ class FieldComputationInProgress :
         return self.__prt(*args)
     @property
     def head_file_path(self) :
-        return os.path.join( self.__CP.result_path, \
+        return os.path.join( self.__CP.result_path,
                              FieldComputationInProgress.FNAME )
     @property
     def label(self) :
@@ -734,14 +774,14 @@ class FieldComputationInProgress :
         if self.__stage == 3 :
             return "Stage: computation of Green tensors not finished."
         if self.__stage == 4 :
-            return "Stage: computation of Green tensors finished.\n" + \
-                   "       Ready for field computation(s)"
+            return ("Stage: computation of Green tensors finished.\n"
+                    + "       Ready for field computation(s)")
     @property
     def possible_excitations(self) :
         msg = "Possible excitations: "
         if self.__stage < 4 :
             return msg+"none. Green tensors are not all computed."        
-        rows = [ r.strip() for r in self.__text.split("\n") \
+        rows = [ r.strip() for r in self.__text.split("\n")
                  if "in interface" in r ]
         rows = [ f"\n\t{i:2d} > {r}" for i,r in enumerate(rows) ]
         return msg + "".join(rows)
@@ -751,8 +791,9 @@ class FieldComputationInProgress :
     @property
     def fmt_coef_file_pathes(self) :
         if self.__stage < 4 :
-            self.prt("FieldComputationInProgress.fmt_coef_file_pathes "+\
-                     "::\n\tWarning: Green tensors are not all computed.")
+            self.prt("FieldComputationInProgress.fmt_coef_file_pathes "
+                     + "::\n\tWarning: Green tensors are not all "
+                     + "computed.")
             return tuple()
         return tuple( self.__fmt_coef_file_pathes )
     @property
@@ -764,8 +805,9 @@ class FieldComputationInProgress :
     @property
     def excitation_numbers(self) :
         if self.__stage < 4 :
-            self.prt("FieldComputationInProgress.excitation_numbers "+\
-                     "::\n\tWarning: Green tensors are not all computed.")
+            self.prt("FieldComputationInProgress.excitation_numbers "
+                     + "::\n\tWarning: Green tensors are not all "
+                     + "computed.")
             return tuple()
         return tuple( self.__exc_numbers )
     #---------------------------------------------------------------------
@@ -834,8 +876,8 @@ class FieldComputationInProgress :
         try :
             FC = self.__FC_dict[label]
         except Exception as err :
-            msg = "FieldComputationInProgress :: field computation " + \
-                 f"'{label}' does not exist.\n\t'{err}'"
+            msg = ("FieldComputationInProgress :: field computation "
+                   + f"'{label}' does not exist.\n\t'{err}'")
             self.__prt(msg)
             FC = None
         return FC 
@@ -872,8 +914,8 @@ class FieldComputation :
         self.__path = os.path.join(parent.field_path, label)
         if not os.path.isdir( self.__path ) :
             os.mkdir( self.__path )
-            self.prt(msg.replace(" Error","") + \
-                     f"'{self.__path}' created.")
+            self.prt(msg.replace(" Error","")
+                     + f"'{self.__path}' created.")
         self.__head_path = os.path.join(self.__path, self.FNAME)
         if parent.case == "Plate" :
             self.__fmt = os.path.join(self.__path, self.PLATE_FIELD_FMT)
@@ -881,8 +923,8 @@ class FieldComputation :
             self.__fmt = os.path.join(self.__path, self.PIPE_FIELD_FMT)
         if excitations is None : # read from file
             if not os.path.isfile(self.__head_path) :
-                msg += f"'{self.FNAME}' does not exist. Cannot create" + \
-                        "new instance."
+                msg += (f"'{self.FNAME}' does not exist. Cannot create"
+                        + "new instance.")
                 raise ValueError(msg)
             with open(self.__head_path, "r", encoding="utf8") as strm :
                 head_text = strm.read()
@@ -916,7 +958,7 @@ class FieldComputation :
                 except Exception as err :
                     msg += f"excitation array incorrect.\n\t'{err}'"
                     raise ValueError(msg)
-                tab_pth = os.path.join(self.__path, \
+                tab_pth = os.path.join(self.__path,
                                        f"{S}_interface{I}_excitation.npy")
                 np.save(tab_pth, tab_exc) # array saved on disk
                 self.__slices.append( slc )
@@ -924,7 +966,7 @@ class FieldComputation :
                 self.__coef_fmt.append( coef_fmt )
             self.save()
     #---------------------------------------------------------------------
-    def compute(self, fields_to_compute, normal_positions_mm, \
+    def compute(self, fields_to_compute, normal_positions_mm,
                 max_memory_GB="auto") :
         """Compute the fields of labels in 'fields_to_compute' at normal
            positions (z for plates and r for pipes) in
@@ -941,16 +983,16 @@ class FieldComputation :
             for jp,pos in enumerate(normal_positions_mm) :
                 pth = self.__fmt.format(fld, pos)
                 if os.path.isfile( pth ) :
-                    self.prt(f"Case '{fld}' at position {pos:.2f} mm " + \
-                              "already computed")
+                    self.prt(f"Case '{fld}' at position {pos:.2f} mm "
+                             + "already computed")
                     E[jf,jp] = False
         fields_to_compute = fields_to_compute[ np.where(E.any(axis=1)) ]
         if len(fields_to_compute) == 0 :
-            self.prt(msg.replace("Error\n\t", \
+            self.prt(msg.replace("Error\n\t",
                                  "All cases are already computed."))
             return
-        normal_positions_mm = normal_positions_mm[ \
-                                               np.where(E.any(axis=0)) ]
+        normal_positions_mm = normal_positions_mm[
+                                                np.where(E.any(axis=0)) ]
         # Time and space grids
         tm_gd = self.__FCIP.time_grid
         sp_gd = self.__FCIP.space_grid
@@ -963,8 +1005,8 @@ class FieldComputation :
             max_memory_GB = min(max_memory_GB, self.__FCIP.MAXMEM)
             
         if mem_by_field > max_memory_GB :
-            msg += f"Needed memory by field ~ {mem_by_field:.2f} GB." + \
-                    "\n\tToo big. Not yet implemented"
+            msg += (f"Needed memory by field ~ {mem_by_field:.2f} GB."
+                    + "\n\tToo big. Not yet implemented")
             raise ValueError(msg)
         fields_to_compute = tuple(fields_to_compute)
         nb_fld, nb_pos = len(fields_to_compute), len(normal_positions_mm)
@@ -990,10 +1032,10 @@ class FieldComputation :
                         self.compute(ftc, pos)
             return # Finished                    
         #xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
-        BA_KS = np.ndarray( (tm_gd.ns,) + sp_gd.shape + (nb_fld, nb_pos),\
+        BA_KS = np.ndarray( (tm_gd.ns,) + sp_gd.shape + (nb_fld, nb_pos),
                             dtype=np.complex128 )
-        self.prt(f"Size of the big array {BA_KS.shape} ~ " + \
-                 f"{BA_KS.nbytes/self.__FCIP.GIGA:.3f} GB")
+        self.prt(f"Size of the big array {BA_KS.shape} ~ "
+                 + f"{BA_KS.nbytes/self.__FCIP.GIGA:.3f} GB")
         # Name for each element of the partition
         Lprt = self.__FCIP.parts
         # Slices for each element of the partition
@@ -1012,8 +1054,8 @@ class FieldComputation :
             self.prt(f"[{now()}] Excitation in the KS-domain...")
             L_tab_exc = []
             # Remind the y index before the x index
-            tab_etx = np.zeros( (tm_gd.nt, sp_gd.ny, sp_gd.nx), \
-                                 dtype=np.float64 )
+            tab_etx = np.zeros( (tm_gd.nt, sp_gd.ny, sp_gd.nx),
+                                dtype=np.float64 )
             for slc, tab_pth in zip(self.__slices, self.__tab_pth) :
                 # Excitation in the time-space domain
                 etx = tab_etx.copy()
@@ -1030,9 +1072,9 @@ class FieldComputation :
                 esk[:,sp_gd.ny_max,:] = 0.0 # Value at kymax is zero
                 L_tab_exc.append(esk)
             dur = time()-beg
-            self.prt(f'[{dur:.1f}"] ...done.\n' + \
-                     f"[{now()}] Beginning of the field computation " + \
-                      "by part...") 
+            self.prt(f'[{dur:.1f}"] ...done.\n'
+                     + f"[{now()}] Beginning of the field computation "
+                     + "by part...") 
             for slc, part in zip(Lslc, Lprt) :
                 self.prt(f"[{now()}] part '{part}'")
                 beg = time()
@@ -1040,29 +1082,31 @@ class FieldComputation :
                 co_pth = co_pth.format(part)
                 self.prt(f"\tReading '...{co_pth[idx:]}'")
                 # Warning: in C, (it, ix, iy)
-                C = np.einsum("ikj,ijkl->ijkl", esk[slc], \
-                                                np.load(co_pth) )
-                for esk, co_pth in \
-                             zip( L_tab_exc[1:] , self.__coef_fmt[1:] ) :
+                C = np.einsum("ikj,ijkl->ijkl", esk[slc],
+                              np.load(co_pth) )
+                for esk, co_pth in zip(
+                        L_tab_exc[1:], self.__coef_fmt[1:]):
                     co_pth = co_pth.format(part)
-                    C += np.einsum("ikj,ijkl->ijkl", esk[slc], \
-                                                     np.load(co_pth) )
+                    C += np.einsum("ikj,ijkl->ijkl", esk[slc],
+                                   np.load(co_pth) )
                 dur = time()-beg
                 struct_pth = struct_fmt.format(part)
-                self.prt(f'[{dur:.1f}"] ...coefficients done.\n' + \
-                         f"\tReading '...{struct_pth[idx:]}'...")
+                self.prt(f'[{dur:.1f}"] ...coefficients done.\n'
+                         + f"\tReading '...{struct_pth[idx:]}'...")
                 with open(struct_pth, "br") as strm :
                     my_struct = pickle.load(strm)
                 dur = time()-beg
                 self.prt(f'[{dur:.1f}"] ...done.')
                 for iz, zr_mm in enumerate(normal_positions_mm) :
-                    self.prt(f"\t{fields_to_compute} at z/r =" + \
-                             f" {zr_mm} mm...")
+                    self.prt(f"\t{fields_to_compute} at z/r ="
+                             + f" {zr_mm:.3f} mm...")
                     zr_obs = 1e-3*zr_mm
                     cslc = slc + (slice(None), iz )
-                    BA_KS[cslc] = my_struct.fields(zr_obs, C, \
-                                            wanted=fields_to_compute, \
-                                            output = "array").swapaxes(1,2)
+                    BA_KS[cslc] = my_struct.fields(
+                                            zr_obs, C,
+                                            wanted=fields_to_compute,
+                                            output = "array"
+                                            ).swapaxes(1,2)
                     dur = time()-beg
                     self.prt(f'[{dur:.1f}"] ...done.')
                 del my_struct, C
@@ -1092,9 +1136,9 @@ class FieldComputation :
                 esk[:,sp_gd.n_max] = 0.0 # Value at kmax is zero
                 L_tab_exc.append(esk)
             dur = time()-beg
-            self.prt(f'[{dur:.1f}"] ...done.\n' + \
-                     f"[{now()}] Beginning of the field computation " + \
-                      "by part...") 
+            self.prt(f'[{dur:.1f}"] ...done.\n'
+                     + f"[{now()}] Beginning of the field computation "
+                     + "by part...") 
             for slc, part in zip(Lslc, Lprt) :
                 self.prt(f"[{now()}] part '{part}'")
                 beg = time()
@@ -1102,26 +1146,27 @@ class FieldComputation :
                 co_pth = co_pth.format(part)
                 self.prt(f"\tReading '...{co_pth[idx:]}'")
                 C = np.einsum("ij,ijk->ijk", esk[slc], np.load(co_pth) )
-                for esk, co_pth in \
-                             zip( L_tab_exc[1:] , self.__coef_fmt[1:] ) :
+                for esk, co_pth in zip(
+                        L_tab_exc[1:] ,self.__coef_fmt[1:]) :
                     co_pth = co_pth.format(part)
-                    C += np.einsum("ij,ijk->ijk", esk[slc], \
-                                                  np.load(co_pth) )
+                    C += np.einsum("ij,ijk->ijk", esk[slc],
+                                   np.load(co_pth) )
                 dur = time()-beg
                 struct_pth = struct_fmt.format(part)
-                self.prt(f'[{dur:.1f}"] ...coefficients done.\n' + \
-                         f"\tReading '...{struct_pth[idx:]}'...")
+                self.prt(f'[{dur:.1f}"] ...coefficients done.\n'
+                         + f"\tReading '...{struct_pth[idx:]}'...")
                 with open(struct_pth, "br") as strm :
                     my_struct = pickle.load(strm)
                 dur = time()-beg
                 self.prt(f'[{dur:.1f}"] ...done.')
                 for iz, zr_mm in enumerate(normal_positions_mm) :
-                    self.prt(f"\t{fields_to_compute} at z/r =" + \
-                             f" {zr_mm} mm...")
+                    self.prt(f"\t{fields_to_compute} at z/r ="
+                             + f" {zr_mm:.3f} mm...")
                     zr_obs = 1e-3*zr_mm
                     cslc = slc + (slice(None), iz )
-                    BA_KS[cslc] = my_struct.fields(zr_obs, C, \
-                                            wanted=fields_to_compute, \
+                    BA_KS[cslc] = my_struct.fields(
+                                            zr_obs, C,
+                                            wanted=fields_to_compute,
                                             output = "array")
                     dur = time()-beg
                     self.prt(f'[{dur:.1f}"] ...done.')
@@ -1135,8 +1180,8 @@ class FieldComputation :
         # 3d and 2d
         del BA_KS
         dur = time()-beg
-        self.prt(f'[{dur:.1f}"] ...done. ' + \
-                  'Coming back to (x,t)-Domain...')
+        self.prt(f'[{dur:.1f}"] ...done. '
+                 + 'Coming back to (x,t)-Domain...')
         # (x,s)-Domain -> (x,t)-Domain
         BA_XT = tm_gd.iLT(BA_XS, axis=0)
         del BA_XS
@@ -1156,11 +1201,12 @@ class FieldComputation :
         text = f"Excitation with {nb} component"
         if nb >=2 : text += "s"
         text += ":"
-        for slc, tp, cf in zip(self.__slices, self.__tab_pth, \
+        for slc, tp, cf in zip(self.__slices, self.__tab_pth,
                                self.__coef_fmt) :
             idx =  " ".join( [ f"{sl.start}:{sl.stop}" for sl in slc ] )
-            text += "\n\t" + "\n\t\t".join([os.path.basename(cf), \
-                                          os.path.basename(tp), idx])
+            text += "\n\t" + "\n\t\t".join([os.path.basename(cf),
+                                            os.path.basename(tp),
+                                            idx])
         text += "\n"
         with open(self.__head_path, "w", encoding="utf8") as strm :
             strm.write(text)
@@ -1186,9 +1232,10 @@ class FieldComputation :
             r3 = [ s.split(":") for s in r3.split() ]
             r3 = [ slice(int(b),int(e)) for b,e in r3 ]
             b = r1.index("Green_tensors")-1
-            self.prt("\n\t + ".join( [ msg.replace(" Error\n\t", \
-                                           f"\n\tComponent #{rk//3+1}"), \
-                                       "..."+r1[b:], "..."+r2[b:], \
+            self.prt("\n\t + ".join( [ msg.replace(
+                                            " Error\n\t",
+                                            f"\n\tComponent #{rk//3+1}"),
+                                       "..."+r1[b:], "..."+r2[b:],
                                        f"{r3}" ] ) )
             self.__slices.append( tuple(r3) )
             self.__tab_pth.append(r2)
@@ -1207,7 +1254,7 @@ class FieldComputation :
     def computed_fields(self) :
         """Returns the .npy file names corresponding to computed fields.
         """
-        L = [ nm for nm in os.listdir(self.__path) \
+        L = [ nm for nm in os.listdir(self.__path)
               if "_mm.npy" in nm and "_at" in nm ]
         return L
     @property
@@ -1215,8 +1262,8 @@ class FieldComputation :
         """Returns the pairs (field name, normal position in mm)
            corresponding to computed fields.
         """
-        C = [ nm.replace("_mm.npy", "").replace("_at_r_", " ").replace( \
-                         "_at_z_", " ").split() \
+        C = [ nm.replace("_mm.npy", "").replace("_at_r_", " ").replace(
+                         "_at_z_", " ").split()
               for nm in self.computed_fields ]
         return tuple( (F,float(rz)) for F,rz in C )
     #---------------------------------------------------------------------
@@ -1240,8 +1287,8 @@ class FieldComputation :
                 tab_exc = np.load( tp )
                 val_max = coefficient * np.abs(tab_exc).max()                
                 label = os.path.basename(tp).replace("_excitation.npy","")
-                fig = plt.figure(f"Stored excitation {label}", \
-                                  figsize = (8.5,7.5) )
+                fig = plt.figure(f"Stored excitation {label}",
+                                 figsize = (8.5,7.5) )
                 figs.append( fig )
                 ax = fig.subplots(1,1)
                 axes.append( ax )
@@ -1249,13 +1296,13 @@ class FieldComputation :
                 ax.set_xlabel("Space $x$ [mm]", **opt)
                 ax.set_ylabel("Time $t$ [µs]", **opt)
                 ax.set_title(f"Excitation function '{label}'", **opt)
-                xmn, xmx = 1e3*sp_gd.Xc[ix_min] - dxs2, \
-                           1e3*sp_gd.Xc[ix_max] - dxs2
-                tmx, tmn = 1e6*tm_gd.T[it_min] - dts2, \
-                           1e6*tm_gd.T[it_max] - dts2
-                im = ax.imshow(tab_exc, cmap="seismic", \
-                               vmin=-val_max, vmax=val_max, \
-                               aspect="auto", interpolation="none", \
+                xmn, xmx = (1e3*sp_gd.Xc[ix_min] - dxs2,
+                            1e3*sp_gd.Xc[ix_max] - dxs2)
+                tmx, tmn = (1e6*tm_gd.T[it_min] - dts2,
+                            1e6*tm_gd.T[it_max] - dts2)
+                im = ax.imshow(tab_exc, cmap="seismic",
+                               vmin=-val_max, vmax=val_max,
+                               aspect="auto", interpolation="none",
                                extent=(xmn, xmx, tmx, tmn) )
                 ims.append( im )
                 dvd = make_axes_locatable(ax)

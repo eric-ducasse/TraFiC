@@ -1,4 +1,4 @@
-# Version 1.61 - 2023, July, 3rd
+# Version 1.62 - 2024, October, 2nd
 # Copyright (Eric Ducasse 2020)
 # Licensed under the EUPL-1.2 or later
 # Institution :  I2M / Arts & Metiers ParisTech
@@ -12,7 +12,7 @@ if __name__ == "__main__" :
 from MaterialClasses import *
 # ====== Numerical tools ===================================================
 import numpy as np
-from numpy import sqrt, exp, pi, sin, cos, log, array, meshgrid, multiply
+from numpy import multiply
 outer =  multiply.outer # (i1,...,in),(j1,...,jk) -> (i1,...,i2,j1,...jk)
 from numpy.linalg import eig
 #===========================================================================
@@ -25,6 +25,7 @@ class USMat :
     """Virtual mother class of all classes"""
     __ListOfOrMat = dict()
     __2powm20 = 2**-20
+    #+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
     def __init__(self, material, angles, USset=None) :
         self.__initial_mat = material
         self.__mat = material # by default, for fluid and vertical T.I.E.
@@ -41,6 +42,7 @@ class USMat :
             USMat.__ListOfOrMat[idset].append(self)
         else : # new USset
             USMat.__ListOfOrMat[idset] = [self]
+    #+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
     @property
     def initial_material(self) : return self.__initial_mat
     @property
@@ -82,70 +84,73 @@ class USMat :
         nb  = self.nb_pw*224   # Kz vector containing np.complex128
              # 224 = 2*16*(1+6)  and polarization matrix
         return nb
+    #+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
     def update(self, S, Kx, Ky=None) :
         """ Should not be called """
-        print("Error : USMat::update called by a "+\
-              "'{}' instance".format(type(self).__name__))
-        
-    def fieldComponents(self,dzup,dzdown) :
+        print("Error : USMat::update called by a "
+              + f"'{type(self).__name__}' instance")
+    #+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+    def fieldComponents(self, dzup, dzdown) :
         """ returns PW ( shape=(ns,nx,[ny,],6,2*self.nb_pw) ) 
             such that U = np.einsum(self.MVprod,PW,a), where a 
             denotes the vector of the coefficients of the partial
             waves ( shape=(ns,nx,[ny,],2*self.nb_pw) )."""
-        C = -1j*array(self.nb_pw*[dzup]+self.nb_pw*[dzdown])
+        C = -1j*np.array(self.nb_pw*[dzup]+self.nb_pw*[dzdown])
         shp = self.Kz.shape[:-1] # (ns,nx[,ny])
         C = outer( np.ones( shp, dtype=np.complex128),C )
-        E = outer(exp(self.Kz*C),np.ones(6))
+        E = outer(np.exp(self.Kz*C),np.ones(6))
         idx = list(range(E.ndim))
         idx[-1],idx[-2] = idx[-2],idx[-1]
         E = E.transpose(idx)
         return self.P*E
-
+    #+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
     def clearSK(self) :
         """Clears Kz and P; Useful to release memory."""
         self.__Kz = None
         self.__P = None
-
+    #+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
     @staticproperty
-    def ListOfOrientedMaterials() : return USMat.__ListOfOrMat
+    def ListOfOrientedMaterials() :
+        return USMat.__ListOfOrMat
+    #+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
     @staticmethod
     def sort_eig(M) :
         K,P = eig(M)
         shp = K.shape
         dm = shp[-1]
-        ones = np.ones(dm,dtype=int)
+        ones = np.ones(dm, dtype=np.int32)
         sort_keys = K.imag
         # renumbering of the Partial Waves (nos)
         Vmax = outer(abs(sort_keys).max(axis=-1),ones)
-        sort_keys = (sort_keys>0)*sort_keys +\
-                    (sort_keys<0)*(Vmax-sort_keys)
+        sort_keys = ((sort_keys>0)*sort_keys
+                     + (sort_keys<0)*(Vmax-sort_keys))
         nos = np.argsort(sort_keys)
         # renumbering tools
         stridx,Lidx = "",[]
         for i,n in enumerate(shp[:-1]) :
-            stridx += "idx{},".format(i)
-            Lidx.append(range(n))
-        Lidx.append(range(dm))
+            stridx += f"idx{i},"
+            Lidx.append(np.arange(n))
+        Lidx.append(np.arange(dm))
         idxJ = stridx[:-1]
-        idxK = idxJ + ",idx{}".format(i+1)
-        idxP = idxK + ",idx{}".format(i+2)
+        idxK = idxJ + f",idx{i+1}"
+        idxP = idxK + f",idx{i+2}"
         # Wave numbers
-        exec("{} = meshgrid( *Lidx , indexing='ij')".format(idxK))
-        K = eval("K[{},nos]".format(idxJ))
+        exec(f"{idxK} = np.meshgrid( *Lidx , indexing='ij')")
+        K = eval(f"K[{idxJ},nos]")
         # Polarizations        
-        Lidx.append(range(dm))
-        exec("{} = meshgrid( *Lidx , indexing='ij')".format(idxP))
-        idx = list(range(len(shp)+1))
+        Lidx.append(np.arange(dm))
+        exec(f"{idxP} = np.meshgrid( *Lidx , indexing='ij')")
+        idx = np.arange(len(shp)+1).tolist()
         idx[-2],idx[-1] = idx[-1],idx[-2]
         nos = outer(nos,ones).transpose(idx)
-        P = eval("P[{},nos]".format(idxK))
+        P = eval(f"P[{idxK},nos]")
         return K,P
-    
+    #+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
     @staticmethod
-    def _sigmaHor(C0,Ckx,Cky,U,Vkx,Vky=None) : # internal method
+    def _sigmaHor(C0, Ckx, Cky, U, Vkx, Vky=None) : # internal method
         """Returns the stress Sxx, Syy or Sxy, from the 6-dimensional
            field U. Needs the horizontal wavenumbers Vkx [, Vky] and the
-           6-dimensional vectors C0,Ckx,Cky."""
+           6-dimensional vectors C0, Ckx, Cky."""
         if Vky is None : # 2D
             onesX = np.ones_like(Vkx)
             CSxx  = np.einsum("i,j->ij",onesX,C0)
@@ -153,11 +158,11 @@ class USMat :
             return  np.einsum("jk,ijk->ij",CSxx,U)
         else : #3D
             onesX,onesY = np.ones_like(Vkx),np.ones_like(Vky)
-            CSxx =  np.einsum("ij,k->ijk", \
+            CSxx =  np.einsum("ij,k->ijk",
                               np.einsum("i,j->ij",onesX,onesY),C0)
-            CSxx += np.einsum("ij,k->ijk", \
+            CSxx += np.einsum("ij,k->ijk",
                               np.einsum("i,j->ij",Vkx,onesY),Ckx)
-            CSxx += np.einsum("ij,k->ijk", \
+            CSxx += np.einsum("ij,k->ijk",
                               np.einsum("i,j->ij",onesX,Vky),Cky)
             return np.einsum("jkl,ijkl->ijk",CSxx,U)
             
@@ -221,9 +226,11 @@ def USMaterial(material, angles=None, USset=None) :
 #===========================================================================
 class USFluid(USMat) :
     """ US Fluid """
+    #+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
     def __init__(self, material, USset=None) :
         USMat.__init__(self, material, None, USset)
         self._set_nb_pw(1) # number of partial waves in each direction
+    #+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
     def update(self, S2, K, K2, Q=None) :
         """ S2, Kx, Ky and other arrays have same dimensions """
         # Initialisations
@@ -231,7 +238,7 @@ class USFluid(USMat) :
         shp = list(S2.shape)
         self._set_Kz(np.zeros( shp+[2], dtype = np.complex128 ))
         self._set_P(np.zeros( shp+[6,2], dtype = np.complex128 ))
-        Kz = 1j*sqrt( K2 + S2/m.c**2 ) # Im(Kz)>0
+        Kz = 1j*np.sqrt( K2 + S2/m.c**2 ) # Im(Kz)>0
         isurhoS2 = 1j*S2**(-1)/m.rho # Corrected in V1.6
         if Q is None : # 2D
             self._set_MMprod("ijkl,ijlm->ijkm")
@@ -248,7 +255,7 @@ class USFluid(USMat) :
         else : # 3D
             self._set_MMprod("ijklm,ijkmn->ijkln")
             self._set_MVprod("ijklm,ijkm->ijkl")
-            Kx,Ky = K*cos(Q),K*sin(Q)
+            Kx,Ky = K*np.cos(Q),K*np.sin(Q)
             self.Kz[:,:,:,0] = Kz
             self.Kz[:,:,:,1] = -Kz
             self.P[:,:,:,0,0] = isurhoS2*Kx # Ux = 1j*kx/(rho*s**2)*p
@@ -259,15 +266,21 @@ class USFluid(USMat) :
             self.P[:,:,:,2,1] = -self.P[:,:,:,2,0]
             self.P[:,:,:,3:5,:].fill(0.0) # Sxz = Syz = 0
             self.P[:,:,:,5,:].fill(-1.0) # Szz = -1.0*p
-    def sigmaXX(self,U,Vkx=None,Vky=None) : # Vkx, Vky not used in a fluid
+    #+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+    def sigmaXX(self, U, Vkx=None, Vky=None) :
+        # Vkx, Vky not used in a fluid
         """Returns the stress Sxx = Szz = -pressure,
            from the 6-dimensional field U."""
         return U[...,5]
-    def sigmaYY(self,U,Vkx=None,Vky=None) : # Vkx, Vky not used in a fluid
+    #+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+    def sigmaYY(self, U, Vkx=None, Vky=None) :
+        # Vkx, Vky not used in a fluid
         """Returns the stress Syy = Szz = -pressure,
            from the 6-dimensional field U."""
         return U[...,5]
-    def sigmaXY(self,U,Vkx=None,Vky=None) : # Vkx, Vky not used in a fluid
+    #+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+    def sigmaXY(self, U, Vkx=None, Vky=None) :
+        # Vkx, Vky not used in a fluid
         """Returns the stress Sxy = 0, from the 6-dimensional field U."""
         return np.zeros_like(U[...,5])
 #===========================================================================
@@ -321,7 +334,7 @@ class USTIE(USMat) :
         self._set_Kz(np.zeros( shp+[6], dtype = np.complex128 ))
         self._set_P(np.zeros( shp+[6,6], dtype = np.complex128 ))
         # SH Waves (out-of-plane)
-        KSH = 1j*sqrt( (m.rho*S2+m.c66*K2)/m.c44 )
+        KSH = 1j*np.sqrt( (m.rho*S2+m.c66*K2)/m.c44 )
         # In-plane waves
         N4 = np.zeros( shp+[4,4], dtype = np.complex128 )
         if Q is None : # 2D
@@ -350,7 +363,7 @@ class USTIE(USMat) :
             self.P[:,:,3:6:2,3:5] = P4[:,:,2:,2:]
 
         else : # 3D
-            u0,u1,T = -sin(Q),cos(Q),1j/(m.c44*KSH)
+            u0,u1,T = -np.sin(Q),np.cos(Q),1j/(m.c44*KSH)
             self.Kz[:,:,:,2] = KSH
             self.Kz[:,:,:,5] = -KSH
             self.P[:,:,:,0,2] = u0*T
@@ -405,6 +418,7 @@ class USTIE(USMat) :
 #===========================================================================
 class USAniE(USMat) :
     """ US Anisotropic Elastic Solid """
+    #+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
     def __init__(self, material, angles, USset=None ) :
         """ angles : (phi, beta, alpha) in degrees """
         USMat.__init__(self, material, angles, USset )
@@ -467,7 +481,7 @@ class USAniE(USMat) :
         self.__CSyy_Kx[:3] = CSyU_Kx[1,:]
         self.__CSyy_Ky = VZ.copy()
         self.__CSyy_Ky[:3] = CSyU_Ky[1,:]
-
+    #+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
     def update(self, S2, Kx, Kx2, Ky=None, Ky2=None, Kxy=None) :
         """ S2, Kx, Ky and other arrays have same dimensions """
         if Ky is None : # 2D
@@ -485,25 +499,24 @@ class USAniE(USMat) :
         K,P = USMat.sort_eig(N)
         self._set_Kz(K)
         self._set_P(P)
-        
+    #+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
     def sigmaXX(self, U, Vkx, Vky=None ) :
         """Returns the stress Sxx, from the 6-dimensional field U.
            Needs the horizontal wavenumbers Vkx [, Vky]."""
         return USMat._sigmaHor(self.__CSxx_0, self.__CSxx_Kx, \
                                self.__CSxx_Ky, U, Vkx, Vky)
-    
+    #+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
     def sigmaYY(self, U, Vkx, Vky=None ) :
         """Returns the stress Syy, from the 6-dimensional field U.
            Needs the horizontal wavenumbers Vkx [, Vky]."""
         return USMat._sigmaHor(self.__CSyy_0, self.__CSyy_Kx, \
                                self.__CSyy_Ky, U, Vkx, Vky)
-        
+    #+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++        
     def sigmaXY(self, U, Vkx, Vky=None ) :
         """Returns the stress Sxy, from the 6-dimensional field U.
            Needs the horizontal wavenumbers Vkx [, Vky]."""
         return USMat._sigmaHor(self.__CSxy_0, self.__CSxy_Kx, \
-                               self.__CSxy_Ky, U, Vkx, Vky)
-        
+                               self.__CSxy_Ky, U, Vkx, Vky)        
 #=========== Tests =========================================================
 if __name__ == "__main__" :
     # np.set_printoptions(precision=2)
@@ -538,20 +551,20 @@ if __name__ == "__main__" :
             print((ns,no),"->",(usm.mat.type,usm.mat.name,usm.angles))
     # US Calculation
     tmax = 100e-6 # Duration of the signal(s)
-    gamma = -log(1e-5)/tmax
+    gamma = -np.log(1e-5)/tmax
     print("Duration ~{:.2f} mus, gamma ~{:.2f} kHz".format(\
         1e6*tmax,1e-3*gamma))
-    dw = 2*pi/tmax
+    dw = 2*np.pi/tmax
     Nts2 = 2
     Nt = 2*Nts2
-    Vs = array( [gamma+1j*dw*n for n in range(Nt)] )
+    Vs = np.array( [gamma+1j*dw*n for n in range(Nt)] )
     xmax = 0.01 # x in [-xmax+dx,xmax]
-    dkx = pi/xmax
+    dkx = np.pi/xmax
     Nxs2 = 3
-    Vkx = array(\
+    Vkx = np.array(\
          [n*dkx for n in list(range(Nxs2+1))+list(range(-Nxs2+1,0))] )
     # == 2D Case ==
-    S2, Kx = meshgrid(Vs**2,Vkx,indexing='ij')
+    S2, Kx = np.meshgrid(Vs**2,Vkx,indexing='ij')
     Kx2 = Kx**2
     USti2.update(S2,Kx,Kx2)
     print("USti2.nMBytes : ~ {:.3f}".format(USti2.nMBytes))
@@ -562,15 +575,15 @@ if __name__ == "__main__" :
     P2Dani = USani0.P.copy()
     # == 3D Case == 
     ymax = 0.008 # x in [-xmax+dx,xmax]
-    dky = pi/ymax
+    dky = np.pi/ymax
     Nys2 = 4
-    Vky = array(\
+    Vky = np.array(\
            [n*dky for n in list(range(Nys2+1))+list(range(-Nys2+1,0))] )
-    S2, Kx, Ky = meshgrid(Vs**2,Vkx,Vky,indexing='ij')
+    S2, Kx, Ky = np.meshgrid(Vs**2,Vkx,Vky,indexing='ij')
     Kx2, Ky2, Kxy = Kx**2,Ky**2,Kx*Ky
     # for fluids and T.I. media
     K2 = Kx2+Ky2
-    K = sqrt(K2)
+    K = np.sqrt(K2)
     Q = np.arctan2(Ky, Kx) # theta angles
     USti2.update(S2,K,K2,Q)
     print("USti2.nMBytes : ~ {:.3f}".format(USti2.nMBytes))

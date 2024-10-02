@@ -1,4 +1,4 @@
-# Version 0.84 - 2024, February 19
+# Version 0.84 - 2024, March 27
 # Copyright (Eric Ducasse 2020)
 # Licensed under the EUPL-1.2 or later
 # Institution:  I2M / Arts & Metiers ParisTech
@@ -278,8 +278,12 @@ class Mode_Shape_Figure(QFrame):
     K2 = U_LABELS + P_LABELS # keys of length 2
     K3 = S_LABELS            # keys of length 3
     def __init__(self, parent=None, mode=None, zmin="auto", \
-                 zmax="auto") :
+                 zmax="auto", verbose=False) :
         QFrame.__init__(self, parent)
+        if verbose :
+            self.__prt = print
+        else :
+            self.__prt = lambda *args : None
         # Current mode
         self.__mode = mode
         if mode is not None :
@@ -449,9 +453,11 @@ class Mode_Shape_Figure(QFrame):
                       f"\n\t{self.__res_dir} is a file!"
                 raise ValueError(msg)
             self.__specific_res_dir = True
-            print(f"*** Default Result Directory:\n\t{self.__res_dir}")
+            self.__prt(f"*** Default Result Directory:\n" + \
+                       f"\t{self.__res_dir}")
         except Exception as err :
-            print(f"*** No Specific Default Result Directory:\n\t{err}")
+            self.__prt(f"*** No Specific Default Result Directory:\n" + \
+                       f"\t{err}")
         return
     #--------------------------------------------------------------------
     def __update_axes(self, draw=True) :
@@ -475,14 +481,14 @@ class Mode_Shape_Figure(QFrame):
             self.__z_SP.yaxis.set_label_position("right")
             self.__xy_S.grid(color="pink")
             self.__z_SP.grid(color="pink")
-        elif self.__Poynting :     
-            self.__xy_S.set_ylabel( \
+        elif self.__Poynting :      
+            self.__xy_S.set_ylabel("")
+            self.__xy_S.yaxis.set_label_position("right")
+            self.__xy_S.grid(color="pink")   
+            self.__z_SP.set_ylabel( \
                           "(Poynting vector) [W/mm²]", \
                           **self.DEFONT)  
-            self.__xy_S.yaxis.set_label_position("right")    
-            self.__z_SP.set_ylabel("")
             self.__z_SP.yaxis.set_label_position("right")
-            self.__xy_S.grid(color="pink")
             self.__z_SP.grid(color="pink")
         else : # None
             self.__xy_S.set_yticks([])
@@ -521,10 +527,12 @@ class Mode_Shape_Figure(QFrame):
         if self.__disp and self.__u_sel.isChecked(Uy):
             leg_xy = True
             Y = self.__data[Uy].real
-            self.__xy_u.plot(Z_mm, Y, "-r", label = "Re($u_y$)")
+            self.__xy_u.plot(Z_mm, Y, "-", color="#907000", \
+                             label = "Re($u_y$)")
             u_min,u_max = min(u_min,Y[b:e].min()),max(u_max,Y[b:e].max())
             Y = self.__data[Uy].imag
-            self.__xy_u.plot(Z_mm, Y, "--r", label = "Im($u_y$)")
+            self.__xy_u.plot(Z_mm, Y, "--", color="#907000", \
+                             label = "Im($u_y$)")
             u_min,u_max = min(u_min,Y[b:e].min()),max(u_max,Y[b:e].max())
         if self.__disp and self.__u_sel.isChecked(Uz):
             leg_z = True
@@ -633,54 +641,56 @@ class Mode_Shape_Figure(QFrame):
             if self.__P_sel.isChecked(Px):
                 leg_xy = True
                 Y = self.__data[Px].real
-                self.__xy_S.plot(Z_mm, Y, "-c", label = "$P_x$")
+                self.__z_SP.plot(Z_mm, Y, "-c", label = "$P_x$")
                 p_min,p_max = min(p_min,Y[b:e].min()), \
                               max(p_max,Y[b:e].max())
             if self.__P_sel.isChecked(Py):
                 leg_xy = True
                 Y = self.__data[Py].real
-                self.__xy_S.plot(Z_mm, Y, "-m", label = "$P_y$")
+                self.__z_SP.plot(Z_mm, Y, "-m", label = "$P_y$")
                 p_min,p_max = min(p_min,Y[b:e].min()), \
                               max(p_max,Y[b:e].max())
             if self.__P_sel.isChecked(Pz):
                 leg_xy = True
                 Y = self.__data[Pz].real
-                self.__xy_S.plot(Z_mm, Y, "-g", label = "$P_z$")
+                self.__z_SP.plot(Z_mm, Y, "-g", label = "$P_z$")
                 p_min,p_max = min(p_min,Y[b:e].min()), \
                               max(p_max,Y[b:e].max())
+            # Energy velocity
             if self.__P_sel.isChecked(Ve):
                 leg_z = True
                 Y = self.__data[Ve]
-                self.__z_SP.plot(Z_mm, Y[0,:], "-r", linewidth=1.8, \
+                self.__xy_S.plot(Z_mm, Y[0,:], "-r", linewidth=1.8, \
                                  label = "$v_{ex}$")
-                self.__z_SP.plot(Z_mm, Y[1,:], ":r", linewidth=1.0, \
+                self.__xy_S.plot(Z_mm, Y[1,:], ":r", linewidth=1.0, \
                                  label = "$v_{ey}$")
                 e_min,e_max = min(e_min,Y[:,b:e].min()), \
                               max(e_max,Y[:,b:e].max())      
-                self.__z_SP.set_ylabel( \
+                self.__xy_S.set_ylabel( \
                                   "Local Energy Velocity [mm/µs]", \
                                   **self.DEFONT)
-                self.__z_SP.yaxis.set_label_position("right")
+                self.__xy_S.yaxis.set_label_position("right")
+            # Total energy 
             if self.__P_sel.isChecked(Et):
                 leg_z = True
                 Y = self.__data[Et]
-                self.__z_SP.plot(Z_mm, Y, "-r", label = "$e_{tot}$")
+                self.__xy_S.plot(Z_mm, Y, "-r", label = "$e_{tot}$")
                 e_min,e_max = min(e_min,Y[b:e].min()), \
                               max(e_max,Y[b:e].max())      
-                self.__z_SP.set_ylabel( \
+                self.__xy_S.set_ylabel( \
                                   "Volume Energy [µJ/mm³]", \
                                   **self.DEFONT)
-                self.__z_SP.yaxis.set_label_position("right")
+                self.__xy_S.yaxis.set_label_position("right")
             if leg_xy :
                 self.__xy_S.legend(loc="upper right") 
-                p_min = 1.05*p_min-0.05*p_max
-                p_max = 1.05*p_max-0.05*p_min
-                self.__xy_S.set_ylim(p_min,p_max)    
-            if leg_z :
-                self.__z_SP.legend(loc="upper right")
                 e_min = 1.05*e_min-0.05*e_max
                 e_max = 1.05*e_max-0.05*e_min
-                self.__z_SP.set_ylim(e_min,e_max)
+                self.__xy_S.set_ylim(e_min,e_max)    
+            if leg_z :
+                self.__z_SP.legend(loc="upper right")
+                p_min = 1.05*p_min-0.05*p_max
+                p_max = 1.05*p_max-0.05*p_min
+                self.__z_SP.set_ylim(p_min,p_max)
         # Interfaces between layers
         for ax in (self.__xy_u,self.__z__u) :
             for z in self.__mode.Z :
@@ -1223,7 +1233,7 @@ class Dispersion_Curve_Frame(Mode_Frame):
         hf_pth = sbf_pth + "/head_file.txt"
         self.__new_computation = True  
         if os.path.isdir(sbf_pth) :
-            print(f"Folder\n{sbf_name}\nallready exists")
+            print(f"Folder\n{sbf_name}\nalready exists")
             if os.path.isfile(hf_pth) :
                 with open(hf_pth, "r") as strm :
                     pp, lc = [ m.strip() for m in strm.readlines() ]
@@ -1542,7 +1552,7 @@ if __name__ == "__main__" :
     import matplotlib.pyplot as plt
     import os
     print(f"Current dir.: '{os.getcwd()}'")
-    res_dir = "../Data/Results/Plexiglas_4mm"
+    res_dir = "../Data/Results/Plexiglas_4mm_plate/Elastic_semi-immersed"
     msg = res_dir+"\n\t"
     lsd = [ n for n in os.listdir(res_dir) \
                           if os.path.isdir(res_dir+"/"+n) ]

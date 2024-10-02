@@ -1,4 +1,4 @@
-# Version 1.24 - 2024, February 19
+# Version 1.26 - 2024, April 1st
 # Copyright (Eric Ducasse 2020)
 # Licensed under the EUPL-1.2 or later
 # Institution :  I2M / Arts & Metiers ParisTech
@@ -281,32 +281,32 @@ class Plane_Guided_Mode :
     #---------------------------------------------------------------------
     def Sxx(self, z) :
         """Returns the complex mode shape Sxx, i.e. the stress component
-           the xx-direction with respect to the vertical position z."""
+           in the xx-direction with respect to the vertical position z."""
         return self.__f_sxx(z)
     #---------------------------------------------------------------------
     def Sxy(self, z) :
         """Returns the complex mode shape Sxx, i.e. the stress component
-           the xy-direction with respect to the vertical position z."""
+           in the xy-direction with respect to the vertical position z."""
         return self.__f_sxy(z)
     #---------------------------------------------------------------------
     def Sxz(self, z) :
         """Returns the complex mode shape Sxx, i.e. the stress component
-           the xz-direction with respect to the vertical position z."""
+           in the xz-direction with respect to the vertical position z."""
         return self.__f_sxz(z)
     #---------------------------------------------------------------------
     def Syy(self, z) :
         """Returns the complex mode shape Sxx, i.e. the stress component
-           the yy-direction with respect to the vertical position z."""
+           in the yy-direction with respect to the vertical position z."""
         return self.__f_syy(z)
     #---------------------------------------------------------------------
     def Syz(self, z) :
         """Returns the complex mode shape Sxx, i.e. the stress component
-           the yz-direction with respect to the vertical position z."""
+           in the yz-direction with respect to the vertical position z."""
         return self.__f_syz(z)
     #---------------------------------------------------------------------
     def Szz(self, z) :
         """Returns the complex mode shape Sxx, i.e. the stress component
-           the zz-direction with respect to the vertical position z."""
+           in the zz-direction with respect to the vertical position z."""
         return self.__f_szz(z)
     #---------------------------------------------------------------------
     def Px(self, z, complex_valued=True) :
@@ -393,6 +393,71 @@ class Plane_Guided_Mode :
         indexes = np.where(etot>0)
         ve[:,indexes] = p[:,indexes]/etot[indexes]
         return ve       
+    #---------------------------------------------------------------------
+    def energy_Velocity(self, z_min_mm, z_max_mm, nb_val=200) :
+        """ Returns Vex + i*Vey for z in [ z_min_mm, z_max_mm ],
+            in mm/µs."""
+        z_min, z_max = 1e-3*z_min_mm, 1e-3*z_max_mm
+        ZERO_VALUE = 1e-4
+        ZERO_KZ = 0.2*np.pi # Wavelength = 10 m
+        ZERO_En_Ratio = 1e-6
+        # Plate and layers positions
+        Z, plate = self.__Z, self.__plate
+        # Frequency, wavenumbers in the x and y directions
+        f,k,nu = self.__f,self.__k,self.__nu
+        uns2w = 0.25/(np.pi*f)
+        # Slowness vector S'
+        S = (0.5/np.pi)*np.array( ( (k/f).real, (nu/f).real ) )
+        # Integration on interval [z_min, z_max ]
+        if z_min < Z[0] :
+            if plate.left_fluid not in (None,"Wall") :
+                # Attention: stored Kz oriented with the decreasing z
+                kz0 = -self.__mode_data[-2][0].imag
+                c0 = 0.5/kz0
+                z0m = Z[0] - 1e-6*( Z[1]-Z[0] )
+                factor0 = c0 * ( 1 - np.exp(2*kz0*z_min) )
+                # S'.P'
+                Px_mean = factor0 * self.Px(z0m).real
+                Py_mean = factor0 * self.Py(z0m).real
+                # Additional terms
+                Atot = factor0 * self.__a(z0m)
+            z_min = Z[0]
+        else :
+            # S'.P'
+            Px_mean = 0.0
+            Py_mean = 0.0
+            # Additional terms
+            Atot = 0.0            
+        if z_max >= Z[-1] :
+            if plate.right_fluid not in (None,"Wall") :
+                kze = self.__mode_data[-1][0].imag
+                ce = 0.5/kze
+                zep = Z[-1] + 1e-6*( Z[-1]-Z[-2] )
+                factore = ce * ( np.exp(2*kze*(z_max-zep)) - 1 )
+                # S'.P'
+                Px_mean += factore * self.Px(zep).real
+                Py_mean += factore * self.Py(zep).real
+                # Additional terms
+                Atot += factore * self.__a(zep)
+            z_max = Z[-1]
+        # Total Energy Etot
+            # S'.P'
+        Px_mean += self.__nintegrate("Re(Px)", nb_val, z_min, z_max)
+        Py_mean += self.__nintegrate("Re(Py)", nb_val, z_min, z_max)
+        P = np.array( (Px_mean,Py_mean) )
+        SscalP = S@P
+            # Additional terms
+        Atot += self.__nintegrate("a", nb_val)            
+        EA = uns2w.real * Atot
+        if z_min == Z[ 0] : z_min += 1e-6*(Z[1]-Z[0])
+        if z_max == Z[-1] : z_max -= 1e-6*(Z[-1]-Z[-2])
+        Btot = self.Pz(z_min).real - self.Pz(z_max).real
+        EB = uns2w.imag * Btot       
+        Ve = P/(SscalP+EA+EB)
+        Vex, Vey = 1e-3 * Ve
+        if abs(Vey) < 1e-5 or abs(Vey) < 1e-7*abs(Vex) :
+            return Vex
+        return Vex + 1.0j*Vey
     #---------------------------------------------------------------------
     def __update_Energy_Velocity(self, nb_val=200) :
         ZERO_VALUE = 1e-4
@@ -572,7 +637,7 @@ class Plane_Guided_Mode :
             return None, None
         LACC = np.array( [ \
                  self.abs_correlation_coefficient(m, nb_val) \
-                 for m in modes ] )
+                 if m is not None else -2.0 for m in modes] )
         idx = LACC.argmax()
         return idx, LACC[idx]
     #---------------------------------------------------------------------
@@ -690,8 +755,10 @@ class Plane_Guided_Mode :
     #---------------------------------------------------------------------
     def parameters_to_be_saved(self) :
         """Returns a dictionary of the parameters of the mode."""
+        Ve_plate_only = self.energy_Velocity(self.Z[0], self.Z[-1])
         sp = {"f_MHz": 1e-6*self.__f, "k_mm^-1": 1e-3*self.__k, \
               "nu_mm^-1": 1e-3*self.__nu, "Ve_mm/µs": self.Ve, \
+              "Ve_plate_only_mm/µs": Ve_plate_only, \
               "Vph_mm/µs": self.Vphi, "name": self.__name}
         if self.__v_gr == self.__UNDEF : sp["Vg_mm/µs"] = None
         else : sp["Vg_mm/µs"] = 1e-3*self.__v_gr
@@ -705,6 +772,18 @@ class Plane_Guided_Mode :
         md = self.__mode_data[-1]
         sp["Lower Half-Space"] =  {"Kz_mm^-1": 1e-3*md[0], "Cz": md[1]}
         return sp
+    #---------------------------------------------------------------------
+    @property
+    def Kz_up(self) :
+        """Vertical wavenumber in mm^-1 (0 if upper half-space is vacuum).
+        """
+        return 1e-3*self.__mode_data[-2][0]
+    #---------------------------------------------------------------------
+    @property
+    def Kz_down(self) :
+        """Vertical wavenumber in mm^-1 (0 if lower half-space is vacuum).
+        """
+        return 1e-3*self.__mode_data[-1][0] 
     #---------------------------------------------------------------------
     @staticmethod
     def from_dict(plate, dict_mode) :
