@@ -1,4 +1,4 @@
-# Version 1.62 - 2025, January, 4th
+# Version 1.63 - 2025, April, 15
 # Copyright (Eric Ducasse 2020)
 # Licensed under the EUPL-1.2 or later
 # Institution :  I2M / Arts & Metiers ParisTech
@@ -519,7 +519,7 @@ class SharpestPeak :
         disc_values = np.zeros_like(grid.Xc)
         n0 = n_max-1
         disc_values[n0+self.__nmin:n0+self.__nmaxp1] = self.__nzv
-        zpg,zpv = grid.zero_padding(disc_values,63,centered=True)
+        zpg,zpv = grid.zero_padding(disc_values, 63, centered=True)
         err = SharpestPeak.__relative_errors[n]
         test = (np.abs(zpv) >= 0.2*err)
         idx_deb, idx_fin = test.argmax(), test[::-1].argmax()
@@ -664,7 +664,7 @@ class Space1DGrid_with_Subinterval(Space1DGrid):
             zer[i_beg:i_end] = values
             self.__P.append( zer )
         self.__P = np.array(self.__P).transpose()[i_min:i_max]
-        # Global indexes of non-zeros values around [a,b]
+        # Global indexes of non-zero values around [a,b]
         self.__imin, self.__imax = i_min, i_max
         # Relative indexes of grid values in the interval [a,b]
         self.__idxL, self.__idxR = self.__idx_inf-i_min,self.__idx_sup-i_min
@@ -677,16 +677,25 @@ class Space1DGrid_with_Subinterval(Space1DGrid):
     @property
     def basis_dim(self): return self.__dim
     @property
-    def idx_min(self): return self.__imin
+    def idx_min(self): 
+        "Index of the first x non-zero values around the interval [a,b]."
+        return self.__imin
     @property
-    def idx_max(self): return self.__imax
+    def idx_max(self): 
+        """Index of the first x after the non-zero values around the
+           interval [a,b]."""
+        return self.__imax
     @property
-    def idx_left(self): return self.__idx_inf
+    def idx_left(self):
+        "Index of the first x value in the interval [a,b]."
+        return self.__idx_inf
     @property
-    def idx_right(self): return self.__idx_sup
+    def idx_right(self): 
+        "Index of the first x value after the interval [a,b]."
+        return self.__idx_sup
     @property
     def sharpest_peaks(self) :
-        return [(c,self.__P[b:e,r].tolist())
+        return [(c, self.__P[b:e,r].tolist())
                 for r,(c,(b,e)) in enumerate(self.__sharpest_peaks_idx) ]
     @property
     def sharpest_peak_number(self): return self.__sh_pk_nb
@@ -708,7 +717,56 @@ class Space1DGrid_with_Subinterval(Space1DGrid):
            'coef_in_B'."""
         return self.__P@coef_in_B
     #--------------------------------------------------------------------------
-    def orthonormal_basis(self, from_or_indexes) :
+    def val_to_func(self, values_in_ab):
+        """The dimension of the vector 'values_in_ab' is the number n of  
+           grid points in the interval [a,b], which is also equal to the
+           size of the basis B of sharpest peaks. Returns the interpolation
+           function in the basis B."""
+        all_nonzero_values = self.__P@self.__M@values_in_ab
+        return self.__all_nonzero_values_to_func(all_nonzero_values)
+    #--------------------------------------------------------------------------
+    def coef_to_func(self, coef_in_B):
+        """Returns the interpolation function of coefficients in the basis B
+           given by the vector 'coef_in_B'."""
+        all_nonzero_values =  self.__P@coef_in_B
+        return self.__all_nonzero_values_to_func(all_nonzero_values)
+    #--------------------------------------------------------------------------
+    def __all_nonzero_values_to_func(self, all_nonzero_values,
+                                     nb_margin_steps=10, zero_padding_coef=63,
+                                     neglictible=1e-8):
+        """Returns the interpolation function built by zero-padding from the
+           values on the grid in the [idx_min:idx_max] index range."""
+        nb_nz_val = self.__imax - self.__imin
+        if not isinstance(all_nonzero_values, np.ndarray) :
+            all_nonzero_values = np.array(all_nonzero_values)
+        assert all_nonzero_values.shape == (nb_nz_val,)
+        if nb_nz_val%2 == 1 : 
+            nb_val = nb_nz_val + 1 + 2*nb_margin_steps
+        else :
+            nb_val = nb_nz_val + 2*nb_margin_steps
+        xgd = Space1DGrid(nb_val)
+        values = np.zeros( nb_val, dtype=all_nonzero_values.dtype )
+        values[nb_margin_steps:nb_margin_steps+nb_nz_val] = all_nonzero_values
+        zpdg, zpval = xgd.zero_padding(values, zero_padding_coef,
+                                       centered=True)
+        idx0 = nb_val//2 - 1 - nb_margin_steps
+        X0,dX = self.Xc[self.__imin + idx0], self.dx
+        positions = X0 + zpdg.Xc*self.dx
+        abs_vals = np.abs(zpval)
+        ampli_max = abs_vals.max()
+        non_zero_vals = (abs_vals >= neglictible*ampli_max)
+        idx_deb = non_zero_vals.argmax()
+        idx_fin = non_zero_vals.shape[0] - non_zero_vals[::-1].argmax()
+        positions = positions[idx_deb:idx_fin]
+        zpval = zpval[idx_deb:idx_fin]
+        itrp_fct = interp1d(positions, zpval)
+        def interp_func(x, x_min=positions[0], x_max=positions[-1],
+                        ifunc=itrp_fct):
+            return np.where( (x_min<=x)&(x<=x_max),
+                             ifunc(np.clip(x, x_min, x_max)), 0.0 )
+        return interp_func    
+    #--------------------------------------------------------------------------
+    def orthonormal_basis(self, from_or_indexes):
         """Creates an orthonormal basis for the sharpest-peak basis by using
            the classical Gram-Schmidt Process applied following the order
            given by 'from_or_indexes': either str in ("left", "right", "sides",
@@ -770,10 +828,12 @@ class Space1DGrid_with_Subinterval(Space1DGrid):
 if __name__ == "__main__" :
     # Space1DGrid_with_Subinterval example
     # A/ Interpolation of basic functions in the sharpest-peak basis
-    interpol = True  # Change True/False to show example
+    interpol = False  # Change True/False to show example
     # B/ Orthonormal bases
-    orthonorm = True # Change True/False to show example
-    if interpol or orthonorm : 
+    orthonorm = False # Change True/False to show example    
+    # C/ Interpolation function
+    interp_example = True # Change True/False to show example
+    if interpol or orthonorm or interp_example : 
         colors = ('#2080B0', '#FF8000', '#30A030', '#A82828', '#A068C0',
                   '#905850', '#E078C0', '#808080', '#C0C020', '#18C0D0',
                   '#0000F0', '#CC0000', '#007000', '#808000', '#00A0A0',
@@ -888,6 +948,41 @@ if __name__ == "__main__" :
                               size=14, weight="bold")
                 axC.set_xlabel("Position $x$",size=14, weight="bold")
                 plt.show()
+        if interp_example :
+            fig = plt.figure("Interpolation example", figsize=(14,7))
+            fig.subplots_adjust(0.05,0.08,0.99,0.94,0.2,0.25)
+            ax = fig.subplots(1,1)
+            val_test = 0.3*np.random.randn(spgd_ws.basis_dim) + 1.0
+            itrp_fct = spgd_ws.val_to_func(val_test)
+            Vx = np.linspace(spgd_ws.g_range[0], spgd_ws.g_range[1], 1000)
+            Vy = itrp_fct(Vx)
+            y_min,y_max = Vy.min(), Vy.max()
+            coef_test = 2.0*np.random.randn(spgd_ws.basis_dim) - 1.0
+            itrp_fct2 = spgd_ws.coef_to_func(coef_test)
+            Vy2 = itrp_fct2(Vx)
+            y_min,y_max = min(y_min, Vy2.min()), max(y_max, Vy2.max())
+            y_min,y_max = 1.05*y_min-0.05*y_max, 1.05*y_max-0.05*y_min
+            for x in spgd_ws.Xc :
+                plt.vlines(x, y_min,y_max, "b", linewidth=0.5)
+            ax.plot(spgd_ws.Xc, np.zeros_like(spgd_ws.Xc), ".b",
+                    markersize=3.0)
+            ax.plot(Vx, Vy, "-g", label="#1 Interpolation function")
+            ax.plot(spgd_ws.Xc[spgd_ws.idx_min:spgd_ws.idx_max],
+                    spgd_ws.coef_to_val(spgd_ws.val_to_coef(val_test)), ".r")
+            ax.plot(spgd_ws.Xc[spgd_ws.idx_left:spgd_ws.idx_right],
+                    val_test, "or", label="#1 Random values in $\Gamma$")
+            ax.plot(Vx, Vy2, "-b", label="#2 Interpolation function")
+            ax.plot(spgd_ws.Xc[spgd_ws.idx_min:spgd_ws.idx_max],
+                    spgd_ws.coef_to_val(coef_test), "dm",
+                    label="#2 Random coefficients on sharpest-peak basis")
+            ax.set_xlim(*spgd_ws.g_range)
+            ax.set_ylim(y_min, y_max)
+            ax.set_xlabel("Position $x$",size=14, weight="bold")
+            ax.plot([val_a, val_b], 2*[0.97*y_min+0.03*y_max],
+                    "-", color="#808080", lw=4.0)
+                    
+            ax.legend() ; ax.grid()
+            plt.show()
 ###############################################################################
 ############################# Space2DGrid #####################################
 ###############################################################################

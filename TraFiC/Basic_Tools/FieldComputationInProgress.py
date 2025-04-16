@@ -1,4 +1,4 @@
-# Version 1.12 - 2024, October, 2nd
+# Version 1.13 - 2025, February, 24
 # Copyright (Eric Ducasse 2020)
 # Licensed under the EUPL-1.2 or later
 # Institution:  I2M / Arts & Metiers ParisTech
@@ -1298,7 +1298,7 @@ class FieldComputation :
                 ax.set_title(f"Excitation function '{label}'", **opt)
                 xmn, xmx = (1e3*sp_gd.Xc[ix_min] - dxs2,
                             1e3*sp_gd.Xc[ix_max] - dxs2)
-                tmx, tmn = (1e6*tm_gd.T[it_min] - dts2,
+                tmn, tmx = (1e6*tm_gd.T[it_min] - dts2,
                             1e6*tm_gd.T[it_max] - dts2)
                 im = ax.imshow(tab_exc, cmap="seismic",
                                vmin=-val_max, vmax=val_max,
