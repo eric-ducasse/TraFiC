@@ -1,4 +1,4 @@
-# Version 1.26 - 2024, April 1st
+# Version 1.27 - 2025, June 11
 # Copyright (Eric Ducasse 2020)
 # Licensed under the EUPL-1.2 or later
 # Institution :  I2M / Arts & Metiers ParisTech
@@ -11,7 +11,7 @@ import scipy.sparse as sprs
 from scipy.io import savemat
 from scipy.linalg import block_diag
 import sys, os, gc, warnings
-from PyQt5.QtWidgets import (QApplication, QWidget, QPushButton, \
+from PyQt5.QtWidgets import (QApplication, QWidget, QPushButton,
                              QHBoxLayout, QVBoxLayout, QLabel)
 from PyQt5.QtGui import QFont
 from PyQt5.QtCore import Qt
@@ -36,7 +36,7 @@ class Plane_Guided_Mode :
     __current_app = None # QApplication is running ?
     __UNDEF = "undefined" # Flag for undefined group velocity
     #---------------------------------------------------------------------
-    def __init__(self, plate, f, k, mode, nu=0.0, name=None, \
+    def __init__(self, plate, f, k, mode, nu=0.0, name=None,
                  normalized=True, group_velocity=None) :
         """plate is an instance of DiscretizedMultilayerPlate, with
            n layers. f is the nonzero frequency [Hz], k wavenumber in the
@@ -104,9 +104,9 @@ class Plane_Guided_Mode :
     def __str__(self) :
         txt = f"Mode {self.__name}: "
         nb = len(txt)
-        txt += f"phase velocity {self.Vphi:.3f} mm/µs; " + \
-               f"Frequency {self.f:.4f} MHz;\n" + nb*" " + \
-               f"Wavenumumber {self.k:.4f} mm^-1"
+        txt += ( f"phase velocity {self.Vphi:.3f} mm/µs; "
+                 + f"Frequency {self.f:.4f} MHz;\n" + nb*" "
+                 + f"Wavenumumber {self.k:.4f} mm^-1" )
         if self.is_a_true_guided_mode :
             txt += f"; Energy velocity {self.Ve:.3f} mm/µs."
         else :
@@ -129,8 +129,8 @@ class Plane_Guided_Mode :
         k,f,nu = self.__k,self.__f,self.__nu
         plate, mode = self.__plate, self.__mode_data
         if coefficient is not None :
-            mode = [ (Kz,coefficient*C,Er) for Kz,C,Er in mode[:-2] ] + \
-                   [ (Kz,coefficient*C) for Kz,C in mode[-2:] ]
+            mode = ( [ (Kz,coefficient*C,Er) for Kz,C,Er in mode[:-2] ]
+                     + [ (Kz,coefficient*C) for Kz,C in mode[-2:] ] )
             self.__mode_data = mode
         self.__f_ux = plate.shape_function("Ux", k, f, mode, nu)
         self.__dico_fields["Ux"] = self.__f_ux
@@ -176,8 +176,8 @@ class Plane_Guided_Mode :
     @property
     def Cphi(self) :
         """Deprecated - Returns phase velocity in mm/µs."""
-        warnings.warn("Plane_Guided_Mode.Cphi is deprecated." + \
-                      "\n\tUse Plane_Guided_Mode.Vphi instead")
+        warnings.warn("Plane_Guided_Mode.Cphi is deprecated."
+                      + "\n\tUse Plane_Guided_Mode.Vphi instead")
         return self.Vphi
     @property
     def Vphi(self) :
@@ -261,7 +261,7 @@ class Plane_Guided_Mode :
     @property
     def fluid_half_spaces(self) :
         """Returns a pair of booleans."""
-        return ( isinstance(self.__plate.left_fluid, Fluid), \
+        return ( isinstance(self.__plate.left_fluid, Fluid),
                  isinstance(self.__plate.right_fluid, Fluid) )
     #---------------------------------------------------------------------
     def Ux(self, z) :
@@ -378,10 +378,10 @@ class Plane_Guided_Mode :
            """
         f,k,nu = self.__f,self.__k,self.__nu
         uns2f = 0.5/f
-        etot = (0.5/np.pi)*( (k/f).real*self.Px(z).real + \
-                             (nu/f).real*self.Py(z).real + \
-                             uns2f.real*self.__a(z) + \
-                             uns2f.imag*self.__b(z) )
+        etot = (0.5/np.pi)*( (k/f).real*self.Px(z).real
+                             + (nu/f).real*self.Py(z).real
+                             + uns2f.real*self.__a(z)
+                             + uns2f.imag*self.__b(z) )
         return etot
     #---------------------------------------------------------------------
     def Ve_loc(self, z) :
@@ -398,6 +398,7 @@ class Plane_Guided_Mode :
         """ Returns Vex + i*Vey for z in [ z_min_mm, z_max_mm ],
             in mm/µs."""
         z_min, z_max = 1e-3*z_min_mm, 1e-3*z_max_mm
+        EPSI = 1e-7
         ZERO_VALUE = 1e-4
         ZERO_KZ = 0.2*np.pi # Wavelength = 10 m
         ZERO_En_Ratio = 1e-6
@@ -413,9 +414,13 @@ class Plane_Guided_Mode :
             if plate.left_fluid not in (None,"Wall") :
                 # Attention: stored Kz oriented with the decreasing z
                 kz0 = -self.__mode_data[-2][0].imag
-                c0 = 0.5/kz0
-                z0m = Z[0] - 1e-6*( Z[1]-Z[0] )
-                factor0 = c0 * ( 1 - np.exp(2*kz0*z_min) )
+                z0m = Z[0] - EPSI*( Z[1]-Z[0] )
+                dz = z0m - z_min
+                mdkzdz = -2*kz0*dz
+                if np.abs(mdkzdz) < 1e-12 :
+                    factor0 = dz
+                else :
+                    factor0 = 0.5/kz0 * ( 1 - np.exp(mdkzdz) )
                 # S'.P'
                 Px_mean = factor0 * self.Px(z0m).real
                 Py_mean = factor0 * self.Py(z0m).real
@@ -431,9 +436,13 @@ class Plane_Guided_Mode :
         if z_max >= Z[-1] :
             if plate.right_fluid not in (None,"Wall") :
                 kze = self.__mode_data[-1][0].imag
-                ce = 0.5/kze
-                zep = Z[-1] + 1e-6*( Z[-1]-Z[-2] )
-                factore = ce * ( np.exp(2*kze*(z_max-zep)) - 1 )
+                zep = Z[-1] + EPSI*( Z[-1]-Z[-2] )
+                dz = z_max-zep
+                dkzdz = 2*kze*dz
+                if np.abs(dkzdz) < 1e-12 :
+                    factore = dz
+                else :
+                    factore = 0.5/kze * ( np.exp(dkzdz) - 1 )
                 # S'.P'
                 Px_mean += factore * self.Px(zep).real
                 Py_mean += factore * self.Py(zep).real
@@ -449,8 +458,8 @@ class Plane_Guided_Mode :
             # Additional terms
         Atot += self.__nintegrate("a", nb_val)            
         EA = uns2w.real * Atot
-        if z_min == Z[ 0] : z_min += 1e-6*(Z[1]-Z[0])
-        if z_max == Z[-1] : z_max -= 1e-6*(Z[-1]-Z[-2])
+        if z_min == Z[ 0] : z_min += EPSI*(Z[1]-Z[0])
+        if z_max == Z[-1] : z_max -= EPSI*(Z[-1]-Z[-2])
         Btot = self.Pz(z_min).real - self.Pz(z_max).real
         EB = uns2w.imag * Btot       
         Ve = P/(SscalP+EA+EB)
@@ -460,6 +469,7 @@ class Plane_Guided_Mode :
         return Vex + 1.0j*Vey
     #---------------------------------------------------------------------
     def __update_Energy_Velocity(self, nb_val=200) :
+        EPSI = 1e-7
         ZERO_VALUE = 1e-4
         ZERO_KZ = 0.2*np.pi # Wavelength = 10 m
         ZERO_En_Ratio = 1e-6
@@ -469,7 +479,7 @@ class Plane_Guided_Mode :
         e = plate.thickness
         z0,ze = Z[0],Z[-1]
         if plate.left_fluid not in (None,"Wall") :
-            z0m = Z[0]-1e-6*(Z[1]-Z[0])
+            z0m = Z[0]-EPSI*(Z[1]-Z[0])
             # Attention: stored Kz oriented with the decreasing z
             kz0 = -self.__mode_data[-2][0].imag
             DA = kz0 > 0
@@ -477,30 +487,30 @@ class Plane_Guided_Mode :
                 dz = 0.5*np.log(ZERO_VALUE)/(-kz0)
                 z0 -= dz
             elif np.abs(self.__mode_data[-2][0]) <= ZERO_KZ : # SH ?
-                z0p = Z[0]+1e-6*(Z[1]-Z[0])
-                self.__true_guided_mode = \
-                            np.abs(self.e_tot(z0m)) < \
-                                        ZERO_En_Ratio*np.abs(self.e_tot(z0p))
+                z0p = Z[0]+EPSI*(Z[1]-Z[0])
+                self.__true_guided_mode = (
+                    np.abs(self.e_tot(z0m))
+                    < ZERO_En_Ratio*np.abs(self.e_tot(z0p)) )
             else : # The vertical flux at the upper interface has to be
                    # negative for a leaky mode
                 self.__true_guided_mode = self.Pz(z0m).real <= 0.0
             self.__decreasing_amplitude_on_lhs = DA
         if plate.right_fluid not in (None,"Wall") :
-            zep = Z[-1]+1e-6*(Z[-1]-Z[-2])
+            zep = Z[-1]+EPSI*(Z[-1]-Z[-2])
             kze = self.__mode_data[-1][0].imag
             DA = kze < 0
             if DA :
                 dz = 0.5*np.log(ZERO_VALUE)/kze
                 ze += dz
             elif np.abs(self.__mode_data[-1][0]) <= ZERO_KZ : # SH ?
-                zem = Z[-1]-1e-6*(Z[-1]-Z[-2])
-                self.__true_guided_mode = \
-                            np.abs(self.e_tot(zep)) < \
-                                        ZERO_En_Ratio*np.abs(self.e_tot(zem))
+                zem = Z[-1]-EPSI*(Z[-1]-Z[-2])
+                self.__true_guided_mode = (
+                    np.abs(self.e_tot(zep))
+                    < ZERO_En_Ratio*np.abs(self.e_tot(zem)) )
             else : # The vertical flux at the lower interface has to be
                    # positive for a leaky mode
-                self.__true_guided_mode = self.__true_guided_mode and \
-                                          self.Pz(zep).real >= 0.0
+                self.__true_guided_mode = (self.__true_guided_mode
+                                           and self.Pz(zep).real >= 0.0)
             self.__decreasing_amplitude_on_rhs = DA
         self.__zmin = z0
         self.__zmax = ze
@@ -528,23 +538,23 @@ class Plane_Guided_Mode :
         if self.__decreasing_amplitude_on_rhs :
             Atot += ce*self.__a(zep)
         EA = uns2w.real * Atot
-        if z0 == Z[0] : z0 += 1e-6*(Z[1]-Z[0])
-        if ze == Z[-1] : ze -= 1e-6*(Z[-1]-Z[-2])
+        if z0 == Z[0] : z0 += EPSI*(Z[1]-Z[0])
+        if ze == Z[-1] : ze -= EPSI*(Z[-1]-Z[-2])
         Btot = self.Pz(z0).real - self.Pz(ze).real
         EB = uns2w.imag * Btot       
         self.__v_en = P/(SscalP+EA+EB) 
     #---------------------------------------------------------------------
-    def __nintegrate(self, field, nb_val=200, z_min="auto", \
-                     z_max="auto") :
+    def __nintegrate(self, field, nb_val=200, z_min="auto", z_max="auto"):
         """Average value of a field over the thickness of the plate
-           (default) or over the interval [z_min_mm, z_max_mm].""" 
+           (default) or over the interval [z_min_mm, z_max_mm]."""
+        IOTA = 1e-4
         if field in self.keys() :
             fld = self[field]
         elif field == "|U|²" :
             """sqrt( < |Ux|**2 + |Uy|**2 + |Uz|**2 > )"""
-            fld = lambda z : self.Ux(z)*self.Ux(z).conjugate() + \
-                             self.Uy(z)*self.Uy(z).conjugate() + \
-                             self.Uz(z)*self.Uz(z).conjugate()
+            fld = lambda z : ( self.Ux(z)*self.Ux(z).conjugate()
+                               + self.Uy(z)*self.Uy(z).conjugate()
+                               + self.Uz(z)*self.Uz(z).conjugate() )
         elif field == "Sv" :
             """< (Sxx + Syy + Szz) / 3 >"""
             fld = lambda z : (self.Sxx(z)+self.Syy(z)+self.Szz(z))/3
@@ -561,37 +571,34 @@ class Plane_Guided_Mode :
         if z_min == "auto" :
             z_min = self.__Z[0]
             i0 = 1
-        else :
+        elif z_min >= self.__Z[-1]:
             i0 = n_int
-            for i,z in enumerate(self.__Z) :
-                if z_min < z :
-                    i0 = i
-                    break
+        else: # z_min < self.__Z[-1]
+            i0 = ( z_min < self.__Z ).argmax()
         if z_max == "auto" :
             z_max = self.__Z[-1]
-            i1 = -1
+            i1 = n_int - 1
         else :
             if z_max <= z_min :
                 msg = "z_min >= z_max. 0 returned."
                 warnings.warn(msg)
                 return 0.0
-            i1 = 0
-            for i,z in enumerate(self.__Z[::-1]) :
-                if z_max > z :
-                    i1 = n_int - i
-                    break            
+            if z_max <= self.__Z[0] :
+                i1 = 0
+            else:
+                i1 = n_int - (z_max > self.__Z[::-1]).argmax()    
         somme = 0.0
         Zmil = self.__Z[i0:i1].tolist()
         for z0,z1 in zip([z_min]+Zmil, Zmil+[z_max]) :
             n = round( (z1-z0)/dz )
-            Vz = np.linspace(z0+1e-4*dz,z1-1e-4*dz,n+1)
+            Vz = np.linspace(z0+IOTA*dz,z1-IOTA*dz,n+1)
             values = fld(Vz)
-            somme += (values[1:-1].sum()+0.5*(values[0]+values[-1])) * \
-                     (z1-z0)/n
+            somme += ( values[1:-1].sum()
+                       + 0.5*(values[0]+values[-1]) ) * (z1-z0)/n
         return somme
     #---------------------------------------------------------------------
-    def nintegrate(self, field, nb_val=200, z_min_mm="auto", \
-                   z_max_mm="auto") :
+    def nintegrate(self, field, nb_val=200, z_min_mm="auto",
+                   z_max_mm="auto"):
         """Average value of a field over the thickness of the plate
            (default) or over the interval [z_min_mm, z_max_mm]."""
         if z_min_mm == "auto" : z_min = "auto"
@@ -600,14 +607,14 @@ class Plane_Guided_Mode :
         else : z_max = 1e-3*z_max_mm
         return self.__nintegrate(field, nb_val, z_min, z_max)
     #---------------------------------------------------------------------
-    def abs_correlation_coefficient(self, other_mode, nb_val=200, \
-                                    verbose=False) :
-        if self.__plate is not other_mode.__plate :
-            msg = "Plane_Guided_Mode.abs_correlation_coefficient :: " + \
-                  "{}:\n\tThe 2 modes are not defined on the same " + \
-                  "plate!"
-            if np.allclose([ a.e for a in self.__plate.layers ], \
-                           [ a.e for a in other_mode.__plate.layers ]) :
+    def abs_correlation_coefficient(self, other_mode, nb_val=200,
+                                    verbose=False):
+        if self.__plate is not other_mode.__plate:
+            msg = ( "Plane_Guided_Mode.abs_correlation_coefficient :: "
+                    + "{}:\n\tThe 2 modes are not defined on the same "
+                    + "plate!" )
+            if np.allclose([ a.e for a in self.__plate.layers ],
+                           [ a.e for a in other_mode.__plate.layers ]):
                 if verbose :
                     print(msg.format("Warning"))
             else :
@@ -619,7 +626,7 @@ class Plane_Guided_Mode :
             n = round( (z1-z0)/dz )
             Vz = np.linspace(z0+1e-4*dz,z1-1e-4*dz,n+1)
             U1 = np.array( [ self.Ux(Vz), self.Uy(Vz), self.Uz(Vz)] )
-            U2 = np.array( [ other_mode.Ux(Vz), other_mode.Uy(Vz), \
+            U2 = np.array( [ other_mode.Ux(Vz), other_mode.Uy(Vz),
                              other_mode.Uz(Vz)] )
             V1 = np.einsum("ij,ij->j", U1, U1.conjugate())
             U2c = U2.conjugate()
@@ -632,23 +639,23 @@ class Plane_Guided_Mode :
             SR += ((VR[1:-1].sum()+0.5*(VR[0]+VR[-1])) * h)
         return abs(SR)/np.sqrt(S1*S2) 
     #---------------------------------------------------------------------
-    def nearest_mode_index(self, modes, nb_val=200) :
+    def nearest_mode_index(self, modes, nb_val=200):
         if len(modes) == 0 : # Should not be possible
             return None, None
-        LACC = np.array( [ \
-                 self.abs_correlation_coefficient(m, nb_val) \
-                 if m is not None else -2.0 for m in modes] )
+        LACC = np.array( [
+                self.abs_correlation_coefficient(m, nb_val)
+                if m is not None else -2.0 for m in modes] )
         idx = LACC.argmax()
         return idx, LACC[idx]
     #---------------------------------------------------------------------
-    def mean(self, field, nb_val=200) :
+    def mean(self, field, nb_val=200):
         e = self.__plate.thickness
         if field == "U" :
             return np.sqrt(self.__nintegrate("|U|²", nb_val)/e)
         else :
             return self.__nintegrate(field, nb_val)/e
     #---------------------------------------------------------------------
-    def normalize(self, field="Re(Px)") :
+    def normalize(self, field="Re(Px)"):
         U_mean = self.mean("U")
         if field == "Re(Px)" : # Px_mean = 1 W/mm²
             Px_mean = self.mean("Re(Px)")
@@ -662,25 +669,25 @@ class Plane_Guided_Mode :
             if self.__verbose :
                 if Px_mean < 0 :
                     if ok :
-                        print("Plane_Guided_Mode::normalize:\n\t" + \
-                              "Warning: backward propagation")
+                        print("Plane_Guided_Mode::normalize:\n\t"
+                              + "Warning: backward propagation")
                     else :
-                        print("Plane_Guided_Mode::normalize:\n\t" + \
-                              "Warning: nonpropagative increasing mode")
+                        print("Plane_Guided_Mode::normalize:\n\t"
+                              + "Warning: nonpropagative increasing mode")
                 else :
                     if not ok :
-                        print("Plane_Guided_Mode::normalize:\n\t" + \
-                              "Warning: nonpropagative mode")
+                        print("Plane_Guided_Mode::normalize:\n\t"
+                              + "Warning: nonpropagative mode")
         elif field == "U" : # U_mean = 1µm
             coef = self.__Umean/U_mean
         else :
-            print("Plane_Guided_Mode::normalize:\n\t" + \
-                  "Error: normalization with respect to '{field}'\n\t" + \
-                  "not available")            
+            print("Plane_Guided_Mode::normalize:\n\t"
+                  + "Error: normalization with respect to '{field}'\n\t"
+                  + "not available")            
         self.__update_shape_functions(coef)
     #---------------------------------------------------------------------
-    def export(self, path, dz_mm=0.01, c_half_space=5.0, \
-               file_format = "Matlab", verbose=False) :
+    def export(self, path, dz_mm=0.01, c_half_space=5.0,
+               file_format = "Matlab", verbose=False):
         """'path' : None -> return a dict
                     dir  -> Automatic name. Needs 'file_format'
                             (Matlab/numpy)
@@ -689,7 +696,7 @@ class Plane_Guided_Mode :
         """
         if verbose : prt = print
         else : prt = lambda *args,**kwargs : None
-        dico_to_save = {"f_MHz": self.f, "k_mm^-1": self.k, \
+        dico_to_save = {"f_MHz": self.f, "k_mm^-1": self.k,
                         "Vph_mm/µs": self.Vphi}
         edz = 0.01*dz_mm
         if path is None :
@@ -701,8 +708,8 @@ class Plane_Guided_Mode :
         elif path.endswith(".npz") :
             file_path,file_format = path[:-3],"numpy"
         else :
-            msg = "*** Plane_Guided_Mode.export ***\n\t" + \
-                 f"path '{path}' not recognized"
+            msg = ("*** Plane_Guided_Mode.export ***\n\t"
+                   + f"path '{path}' not recognized")
             raise ValueError(msg)            
         if self.__plate.left_fluid is not None :
             Z_hs = c_half_space*(self.Z[-1]-self.Z[0])
@@ -756,15 +763,15 @@ class Plane_Guided_Mode :
     def parameters_to_be_saved(self) :
         """Returns a dictionary of the parameters of the mode."""
         Ve_plate_only = self.energy_Velocity(self.Z[0], self.Z[-1])
-        sp = {"f_MHz": 1e-6*self.__f, "k_mm^-1": 1e-3*self.__k, \
-              "nu_mm^-1": 1e-3*self.__nu, "Ve_mm/µs": self.Ve, \
-              "Ve_plate_only_mm/µs": Ve_plate_only, \
+        sp = {"f_MHz": 1e-6*self.__f, "k_mm^-1": 1e-3*self.__k,
+              "nu_mm^-1": 1e-3*self.__nu, "Ve_mm/µs": self.Ve,
+              "Ve_plate_only_mm/µs": Ve_plate_only,
               "Vph_mm/µs": self.Vphi, "name": self.__name}
         if self.__v_gr == self.__UNDEF : sp["Vg_mm/µs"] = None
         else : sp["Vg_mm/µs"] = 1e-3*self.__v_gr
-        for no,(lay,md) in enumerate(zip(self.__plate.layers, \
+        for no,(lay,md) in enumerate(zip(self.__plate.layers,
                                          self.__mode_data), 1) :
-            sp[f"Layer #{no}"] = {"Thickness_mm": 1e3*lay.thickness, \
+            sp[f"Layer #{no}"] = {"Thickness_mm": 1e3*lay.thickness,
                                   "Kz_mm^-1": 1e-3*md[0],
                                   "Cz": md[1]}
         md = self.__mode_data[-2]
@@ -805,14 +812,14 @@ class Plane_Guided_Mode :
         return Plane_Guided_Mode(plate, f, k, mode_data, nu, name, False)
 #=========================================================================
 class ModeShapeViewer(QWidget) :
-    def __init__(self, mode, z_min="auto", z_max="auto") :
+    def __init__(self, mode, z_min="auto", z_max="auto"):
         QWidget.__init__(self)        
         ok_but = QPushButton("OK",self)
         ok_but.released.connect(self.close)
         title = QLabel( "  "+mode.__str__()+"  " )
         title.setFont( QFont("Arial", 14, QFont.Bold))
-        title.setStyleSheet("color: rgb(0,0,200) ;" + \
-                            "background-color: rgb(255,240,230) ;")
+        title.setStyleSheet("color: rgb(0,0,200) ;"
+                            + "background-color: rgb(255,240,230) ;")
         title.setFixedHeight(60)
         vlay = QVBoxLayout()
         hlay1 = QHBoxLayout()
@@ -853,16 +860,16 @@ if __name__ == "__main__" :
             plq.add_discretizedLayer(nylon, 0.8e-3, 50)
             plq.set_right_fluid("Wall")
         freq = 240.0e3
-        modes = plq.modes_for_given_frequency( freq, rel_err=1e-3, \
-                                                   rel_kappa_err=0.1 )
+        modes = plq.modes_for_given_frequency( freq, rel_err=1e-3,
+                                               rel_kappa_err=0.1 )
         modes = [ m for m in modes if 0<=-m.k.imag<=0.1 ]
 ##
         for X in modes :
         #X = choice(modes)
             X.name = "X"
-            print(f"Freq. {1e-3*freq:.0f} kHz, X : ", \
-                  f"Vphi ~ {X.Vphi:.4f} mm/µs, ", \
-                  f"att ~ {-X.k.imag:.5f} Neper/m,", \
+            print(f"Freq. {1e-3*freq:.0f} kHz, X : ",
+                  f"Vphi ~ {X.Vphi:.4f} mm/µs, ",
+                  f"att ~ {-X.k.imag:.5f} Neper/m,",
                   f"\n\t\tVe ~ {X.Vex:.5f} mm/µs")
             n_plq = (2*113+1)
             Vz_plq = np.linspace(0, plq.e, n_plq)
@@ -903,61 +910,61 @@ if __name__ == "__main__" :
             ax_Sxz.set_ylabel("Stresses [MPa]", **opt)
             ax_Ve = ax_Szz.twinx()
             ax_Ve.set_ylabel("Energy Velocity [mm/µs]", **opt)
-            plt.subplots_adjust(left=0.05, right=0.95, bottom=0.06, \
+            plt.subplots_adjust(left=0.05, right=0.95, bottom=0.06,
                                 top=0.94, hspace=0.1, wspace=0.1)
             Vz_mm = 1e3*Vz
             ax_Ux.plot( Vz_mm, 1e6*VUx.real, "-g", label="Re$(u_x)$")
             ax_Ux.plot( Vz_mm, 1e6*VUx.imag, "--g", label="Im$(u_x)$")
             ax_Ux.plot( Vz_mm, 1e6*VUy.real, "-b", label="Re$(u_y)$")
             ax_Ux.plot( Vz_mm, 1e6*VUy.imag, "--b", label="Im$(u_y)$")
-            ax_Ux.plot( Vz_mm, 1e3*VdUx.real, "-m", \
+            ax_Ux.plot( Vz_mm, 1e3*VdUx.real, "-m",
                         label=r"Re$(u_x^{\prime})$")
-            ax_Ux.plot( Vz_mm, 1e3*VdUx.imag, "--m", \
+            ax_Ux.plot( Vz_mm, 1e3*VdUx.imag, "--m",
                         label="Im$(u_x^{\prime})$")
-            ax_Ux.plot( Vz_mm, 1e3*VdUy.real, "-c", \
+            ax_Ux.plot( Vz_mm, 1e3*VdUy.real, "-c",
                         label=r"Re$(u_y^{\prime})$")
-            ax_Ux.plot( Vz_mm, 1e3*VdUy.imag, "--c", \
+            ax_Ux.plot( Vz_mm, 1e3*VdUy.imag, "--c",
                         label="Im$(u_y^{\prime})$")
             ax_Uz.plot( Vz_mm, 1e6*VUz.real, "-g", label="Re$(u_z)$")
             ax_Uz.plot( Vz_mm, 1e6*VUz.imag, "--g", label="Im$(u_z)$")
-            ax_Uz.plot( Vz_mm, 1e3*VdUz.real, "-m", \
+            ax_Uz.plot( Vz_mm, 1e3*VdUz.real, "-m",
                         label=r"Re$(u_z^{\prime})$")
-            ax_Uz.plot( Vz_mm, 1e3*VdUz.imag, "--m", \
+            ax_Uz.plot( Vz_mm, 1e3*VdUz.imag, "--m",
                         label="Im$(u_z^{\prime})$")
-            ax_E.plot( Vz_mm, 1e-3*VEtot, "b", linewidth=2.0, \
+            ax_E.plot( Vz_mm, 1e-3*VEtot, "b", linewidth=2.0,
                        label = "Volume Energy")
-            ax_Sxz.plot( Vz_mm, 1e-6*VSxz.real, "-g", \
+            ax_Sxz.plot( Vz_mm, 1e-6*VSxz.real, "-g",
                          label=r"Re$(\sigma_{xz})$")
-            ax_Sxz.plot( Vz_mm, 1e-6*VSxz.imag, "--g", \
+            ax_Sxz.plot( Vz_mm, 1e-6*VSxz.imag, "--g",
                          label=r"Im$(\sigma_{xz})$")
-            ax_Sxz.plot( Vz_mm, 1e-6*VSyz.real, "-b", \
+            ax_Sxz.plot( Vz_mm, 1e-6*VSyz.real, "-b",
                          label=r"Re$(\sigma_{yz})$")
-            ax_Sxz.plot( Vz_mm, 1e-6*VSyz.imag, "--b", \
+            ax_Sxz.plot( Vz_mm, 1e-6*VSyz.imag, "--b",
                          label=r"Im$(\sigma_{yz})$")
-            ax_Sxz.plot( Vz_mm, 1e-9*VdSxz.real, "-m", \
+            ax_Sxz.plot( Vz_mm, 1e-9*VdSxz.real, "-m",
                          label=r"Re$(\sigma_{xz}^{\prime})$")
-            ax_Sxz.plot( Vz_mm, 1e-9*VdSxz.imag, "--m", \
+            ax_Sxz.plot( Vz_mm, 1e-9*VdSxz.imag, "--m",
                          label=r"Im$(\sigma_{xz}^{\prime})$")
-            ax_Sxz.plot( Vz_mm, 1e-9*VdSyz.real, "-c", \
+            ax_Sxz.plot( Vz_mm, 1e-9*VdSyz.real, "-c",
                          label=r"Re$(\sigma_{yz}^{\prime})$")
-            ax_Sxz.plot( Vz_mm, 1e-9*VdSyz.imag, "--c", \
+            ax_Sxz.plot( Vz_mm, 1e-9*VdSyz.imag, "--c",
                          label=r"Im$(\sigma_{yz}^{\prime})$")
-            ax_Szz.plot( Vz_mm, 1e-6*VSzz.real, "-g", \
+            ax_Szz.plot( Vz_mm, 1e-6*VSzz.real, "-g",
                          label=r"Re$(\sigma_{zz})$")
-            ax_Szz.plot( Vz_mm, 1e-6*VSzz.imag, "--g", \
+            ax_Szz.plot( Vz_mm, 1e-6*VSzz.imag, "--g",
                          label=r"Im$(\sigma_{zz})$")
-            ax_Szz.plot( Vz_mm, 1e-9*VdSzz.real, "-m", \
+            ax_Szz.plot( Vz_mm, 1e-9*VdSzz.real, "-m",
                          label=r"Re$(\sigma_{zz}^{\prime})$")
-            ax_Szz.plot( Vz_mm, 1e-9*VdSzz.imag, "--m", \
+            ax_Szz.plot( Vz_mm, 1e-9*VdSzz.imag, "--m",
                          label=r"Im$(\sigma_{zz}^{\prime})$")
-            ax_Ve.plot( Vz_mm, 1e-3*VVex, "b", linewidth=2.0, \
+            ax_Ve.plot( Vz_mm, 1e-3*VVex, "b", linewidth=2.0,
                         label="Energy Velocity")
-            plt.suptitle(f"Vitesse de phase {X.Vphi:.3f} mm/µs, " + \
-                         f"Vitesse d'énergie {X.Vex:.3f} mm/µs, " + \
-                         f"Nombre d'onde {X.k:.3f} " + \
-                         "$\mathrm{mm}^{-1}$, " + \
-                         f"Fréquence {1e3*X.f:.1f} kHz, " + \
-                         f"vrai mode : {X.is_a_true_guided_mode}", \
+            plt.suptitle(f"Vitesse de phase {X.Vphi:.3f} mm/µs, "
+                         + f"Vitesse d'énergie {X.Vex:.3f} mm/µs, "
+                         + f"Nombre d'onde {X.k:.3f} "
+                         + "$\mathrm{mm}^{-1}$, "
+                         + f"Fréquence {1e3*X.f:.1f} kHz, "
+                         + f"vrai mode : {X.is_a_true_guided_mode}",
                          **opt)
             for ax in axes :
                 ax.grid() ; ax.legend(loc="upper left")
@@ -972,22 +979,22 @@ if __name__ == "__main__" :
     elif CASE in ("Nylon","import/export") :
         # Mode computation
         for freq in (240.0e3,) : #(180.0e3,195.0e3,210.0e3,240.0e3
-            modes = plq.modes_for_given_frequency( freq, rel_err=1e-3, \
+            modes = plq.modes_for_given_frequency( freq, rel_err=1e-3,
                                                    rel_kappa_err=0.1 )
             S01 = None
             for mode in modes :
                 if np.abs(mode.Vphi-1.5)<0.2 and -0.1<mode.k.imag<=0.1 :
                     S01 = mode
                     S01.name = "S01"
-                    print(f"Freq. {1e-3*freq:.0f} kHz, S01 : ", \
-                          f"Vphi ~ {S01.Vphi:.4f} mm/µs, ", \
-                          f"att ~ {-S01.k.imag:.5f} mm^-1,", \
+                    print(f"Freq. {1e-3*freq:.0f} kHz, S01 : ",
+                          f"Vphi ~ {S01.Vphi:.4f} mm/µs, ",
+                          f"att ~ {-S01.k.imag:.5f} mm^-1,",
                           f"\n\t\tVex ~ {S01.Vex:.5f} mm/µs")
             # Interactive drawing of mode shapes
             S01.show_mode_shapes()
         if CASE == "Nylon" :
             sel_modes = [ m for m in modes if abs(m.k.imag) < 0.1 ]
-            MC = np.array([ [ m1.abs_correlation_coefficient(m2) \
+            MC = np.array([ [ m1.abs_correlation_coefficient(m2)
                               for m2 in sel_modes] for m1 in sel_modes ])
             print(MC.round(3))
         else : # CASE == "import/export"
@@ -1004,7 +1011,7 @@ if __name__ == "__main__" :
         plq.set_right_fluid(water)
         # Mode computation
         freq = 215.0e3      # 215 kHz
-        modes = plq.modes_for_given_frequency( freq, rel_err=1e-3, \
+        modes = plq.modes_for_given_frequency( freq, rel_err=1e-3,
                                                rel_kappa_err=0.1 )
         A01,S02 = None,None
         for mode in modes :
@@ -1014,9 +1021,9 @@ if __name__ == "__main__" :
             elif np.abs(mode.Vphi-3.5)<0.2 and -0.1<mode.k.imag<=0. :
                 S02 = mode
                 S02.name = "S02"
-        print("A01 :", f"Vphi ~ {A01.Vphi:.4f} mm/µs, ", \
-                       f"att ~ {-A01.k.imag:.5f} mm^-1.", \
-              "\nS02 :", f"Vphi ~ {S02.Vphi:.4f} mm/µs, ", \
+        print("A01 :", f"Vphi ~ {A01.Vphi:.4f} mm/µs, ",
+                       f"att ~ {-A01.k.imag:.5f} mm^-1.",
+              "\nS02 :", f"Vphi ~ {S02.Vphi:.4f} mm/µs, ",
                          f"att ~ {-S02.k.imag:.5f} mm^-1.")
         # Interactive drawing of mode shapes
         A01.show_mode_shapes()
@@ -1034,17 +1041,17 @@ if __name__ == "__main__" :
         plq.set_left_fluid(water)
         plq.set_right_fluid(water)
         # Mode computation
-        for f_mHz,v_phi in ( (4.0,6.06), (6.0,4.82), (8.0,3.76), \
+        for f_mHz,v_phi in ( (4.0,6.06), (6.0,4.82), (8.0,3.76),
                              (10.0,3.43) ) :
             freq = f_mHz*1e6
-            modes = plq.modes_for_given_frequency( freq, rel_err=1e-3, \
+            modes = plq.modes_for_given_frequency( freq, rel_err=1e-3,
                                                    rel_kappa_err=0.1 )
             S1 = None
             for mode in modes :
                 if np.abs(mode.Vphi-v_phi)<0.01 and -0.3<mode.k.imag<=0 :
                     S1 = mode
                     S1.name = "S1"
-                    print("S1 :", f"Vphi ~ {S1.Vphi:.4f} mm/µs, ", \
+                    print("S1 :", f"Vphi ~ {S1.Vphi:.4f} mm/µs, ",
                           f"att ~ {-S1.k.imag:.5f} mm^-1.")
         # Interactive drawing of mode shapes
                     S1.show_mode_shapes(-0.7, 1.7)
@@ -1054,8 +1061,8 @@ if __name__ == "__main__" :
         light_water,_,_ = ImpMatFromFile(mat_dir+"Light_Water.txt")
         plq = DiscretizedMultilayerPlate(water, 3.0e-3, 30)
         plq.set_right_fluid(light_water)
-        modes = plq.modes_for_given_frequency( 0.3e6, rel_err=1e-3, \
+        modes = plq.modes_for_given_frequency( 0.3e6, rel_err=1e-3,
                                                    rel_kappa_err=0.1 )
-        modes = [m for m in modes if m.Vphi < 20.0 and \
+        modes = [m for m in modes if m.Vphi < 20.0 and
                                   np.abs(m.k.imag) < 10.0]
         modes[-1].show_mode_shapes()
