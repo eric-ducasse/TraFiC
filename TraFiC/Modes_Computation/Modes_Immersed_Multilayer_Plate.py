@@ -1,10 +1,25 @@
-# Version 0.98 - 2024, March 13
+# Version 0.98 - 2024, August 20
 # Copyright (Eric Ducasse 2020)
 # Licensed under the EUPL-1.2 or later
 # Institution :  I2M / Arts & Metiers ParisTech
 # Program name : TraFiC (Transient Field Computation)
 #+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 import numpy as np
+if np.__version__[0] == "1":
+    solve = np.linalg.solve
+elif np.__version__[0] == "2": # solve must be redefined with numpy 2.x
+    def solve(A, b):
+        shp_M = A.shape
+        shp_V = b.shape
+        matrices_vectors =  len(shp_M) == len(shp_V)+1
+        if matrices_vectors: b.shape = shp_V+(1,)
+        X = np.linalg.solve(A, b)
+        if matrices_vectors:
+            b.shape = shp_V
+            X.shape = X.shape[:-1]
+        return X
+else:
+    raise SystemError(f"Unknown '{np.__version__}' of numpy.")
 import matplotlib.pyplot as plt
 outer = np.multiply.outer
 import scipy.sparse as sprs
@@ -44,7 +59,7 @@ class FDScheme:
             for i,r in enumerate(rangs) :
                 if r==0 : M[:,i] = col0
                 else : M[:,i]= float(r)**puis
-            D1.append(np.linalg.solve(M,B).round(14))
+            D1.append(solve(M,B).round(14))
         self.__D1 = np.array(D1)
         # Second derivative
         n = self.order + 2
@@ -61,7 +76,7 @@ class FDScheme:
                 if r==0 : M[:,i] = col0
                 else : M[:,i]= float(r)**puis
             
-            D2.append(np.linalg.solve(M,B).round(14))
+            D2.append(solve(M,B).round(14))
         self.__D2 = np.array(D2)
         # Derivatives of order greater than 2 are not taken into account
         # here
@@ -527,7 +542,7 @@ class FluidDiscretizedLayer(GeneralDiscretizedLayer) :
         B = np.einsum(pm, A_star, disc_shape)        
         nrm = np.sqrt( np.einsum(ps, np.conjugate(disc_shape), \
                                      disc_shape).real )
-        X = np.linalg.solve(M,B)
+        X = solve(M,B)
         err = np.einsum(pm, A, X) - disc_shape
         err = np.sqrt( np.einsum(ps, np.conjugate(err), err).real )
         return Kz, X, err/nrm
@@ -1158,7 +1173,7 @@ class SolidDiscretizedLayer(GeneralDiscretizedLayer) :
         B = np.einsum(pm, A_star, disc_shape)
         nrm = np.sqrt( np.einsum(ps, np.conjugate(disc_shape), \
                                      disc_shape).real )
-        X = np.linalg.solve(M,B)
+        X = solve(M,B)
         err = np.einsum(pm, A, X) - disc_shape
         err = np.sqrt( np.einsum(ps, np.conjugate(err), err).real )
         C = np.einsum(pd, P, X).swapaxes(-1,-2)

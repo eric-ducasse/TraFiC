@@ -1,18 +1,33 @@
-# Version 1.01 / 2023, July, 28
+# Version 1.02 / 2025, August, 20
 # Copyright (Eric Ducasse 2020)
 # Licensed under the EUPL-1.2 or later
 # Institution :  I2M / Arts & Metiers ParisTech
 # Program name : TraFiC (Transient Field Computation)
 # ====== Initialization ==================================================
 import numpy as np
+if np.__version__[0] == "1":
+    solve = np.linalg.solve
+elif np.__version__[0] == "2": # solve must be redefined with numpy 2.x
+    def solve(A, b):
+        shp_M = A.shape
+        shp_V = b.shape
+        matrices_vectors =  len(shp_M) == len(shp_V)+1
+        if matrices_vectors: b.shape = shp_V+(1,)
+        X = np.linalg.solve(A, b)
+        if matrices_vectors:
+            b.shape = shp_V
+            X.shape = X.shape[:-1]
+        return X
+else:
+    raise SystemError(f"Unknown '{np.__version__}' of numpy.")
 import matplotlib.pyplot as plt
 import sys, os
-TraFiCpath = ".."
-sys.path.append( os.path.abspath(TraFiCpath) )
-if __name__ == "__main__" : import TraFiC_init
+if __name__ == "__main__" :
+    TraFiCpath = ".."
+    sys.path.append( os.path.abspath(TraFiCpath) )
+    import TraFiC_init
 # ====== Material Classes ================================================
 from MaterialClasses import *
-from numpy.linalg import solve
 import scipy.sparse as sprs
 import os
 np.set_printoptions(precision=3,suppress=True) # for printing of ndarrays

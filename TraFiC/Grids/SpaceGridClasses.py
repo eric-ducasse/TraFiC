@@ -1,4 +1,4 @@
-# Version 1.63 - 2025, April, 15
+# Version 1.65 - 2025, August, 20
 # Copyright (Eric Ducasse 2020)
 # Licensed under the EUPL-1.2 or later
 # Institution :  I2M / Arts & Metiers ParisTech
@@ -7,6 +7,21 @@
 import matplotlib.pyplot as plt
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 import numpy as np
+if np.__version__[0] == "1":
+    solve = np.linalg.solve
+elif np.__version__[0] == "2": # solve must be redefined with numpy 2.x
+    def solve(A, b):
+        shp_M = A.shape
+        shp_V = b.shape
+        matrices_vectors =  len(shp_M) == len(shp_V)+1
+        if matrices_vectors: b.shape = shp_V+(1,)
+        X = np.linalg.solve(A, b)
+        if matrices_vectors:
+            b.shape = shp_V
+            X.shape = X.shape[:-1]
+        return X
+else:
+    raise SystemError(f"Unknown '{np.__version__}' of numpy.")
 from scipy.interpolate import interp1d
 from numpy.fft import fft,ifft,fft2,ifft2
 from scipy.special import sici
@@ -335,7 +350,7 @@ class Space1DGrid :
             Maa = SG.Inum(m+1+a, m+1+a) + SG.Inum(n+m-a, n+m-a)
             Mca = SG.Inum(c+m+1, a+m+1) + SG.Inum(n+m-c, n+m-a)
             Mcc = SG.Inum(c+m+1, c+m+1) + SG.Inum(n+m-c, n+m-c)
-            A2C = np.linalg.solve(Mcc, -Mca)
+            A2C = solve(Mcc, -Mca)
             Bsup = np.concatenate( [ A2C[:m,:], np.eye(n), A2C[-m:,:] ] ).T
             err_max = np.linalg.eigvalsh( Maa ).max()
             Merr = Maa +  Mca.T@A2C
@@ -970,7 +985,7 @@ if __name__ == "__main__" :
             ax.plot(spgd_ws.Xc[spgd_ws.idx_min:spgd_ws.idx_max],
                     spgd_ws.coef_to_val(spgd_ws.val_to_coef(val_test)), ".r")
             ax.plot(spgd_ws.Xc[spgd_ws.idx_left:spgd_ws.idx_right],
-                    val_test, "or", label="#1 Random values in $\Gamma$")
+                    val_test, "or", label=r"#1 Random values in $\Gamma$")
             ax.plot(Vx, Vy2, "-b", label="#2 Interpolation function")
             ax.plot(spgd_ws.Xc[spgd_ws.idx_min:spgd_ws.idx_max],
                     spgd_ws.coef_to_val(coef_test), "dm",
@@ -1484,15 +1499,15 @@ class CylSymGrid :
         return True 
     #++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
     def NHT(self, order, array, axis) :
-        """Numerical Hankel (or Fourier-Bessel) Transform.
-           Numerical approximation of
-              \int_{0}^{r_{max}} f(r) J_{order}(k r) r dr."""
+        r"""Numerical Hankel (or Fourier-Bessel) Transform.
+            Numerical approximation of
+               \int_{0}^{r_{max}} f(r) J_{order}(k r) r dr."""
         self.__check(array, axis) 
     #++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
     def iNHT(self, order, array, axis) :
-        """Numerical Inverse Hankel (or Fourier-Bessel) Transform.
-           Numerical approximation of
-              \int_{0}^{k_{max}} f(k) J_{order}(k r) k dk."""
+        r"""Numerical Inverse Hankel (or Fourier-Bessel) Transform.
+            Numerical approximation of
+               \int_{0}^{k_{max}} f(k) J_{order}(k r) k dk."""
         self.__check(array, axis)
 ###############################################################################
 if __name__ == "__main__" :

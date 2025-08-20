@@ -1,4 +1,4 @@
-# Version 1.62 - 2024, October, 2nd
+# Version 1.63 - 2025, August, 20
 # Copyright (Eric Ducasse 2020)
 # Licensed under the EUPL-1.2 or later
 # Institution :  I2M / Arts & Metiers ParisTech
@@ -121,29 +121,34 @@ class USMat :
         ones = np.ones(dm, dtype=np.int32)
         sort_keys = K.imag
         # renumbering of the Partial Waves (nos)
-        Vmax = outer(abs(sort_keys).max(axis=-1),ones)
+        Vmax = outer(np.abs(sort_keys).max(axis=-1),ones)
         sort_keys = ((sort_keys>0)*sort_keys
                      + (sort_keys<0)*(Vmax-sort_keys))
         nos = np.argsort(sort_keys)
-        # renumbering tools
-        stridx,Lidx = "",[]
-        for i,n in enumerate(shp[:-1]) :
-            stridx += f"idx{i},"
-            Lidx.append(np.arange(n))
-        Lidx.append(np.arange(dm))
-        idxJ = stridx[:-1]
-        idxK = idxJ + f",idx{i+1}"
-        idxP = idxK + f",idx{i+2}"
         # Wave numbers
-        exec(f"{idxK} = np.meshgrid( *Lidx , indexing='ij')")
-        K = eval(f"K[{idxJ},nos]")
-        # Polarizations        
-        Lidx.append(np.arange(dm))
-        exec(f"{idxP} = np.meshgrid( *Lidx , indexing='ij')")
+        new_Lidx = []
+        all_ = (slice(None),)
+        nb_idx = len(shp)-1
+        for i,n in enumerate(shp[:-1]) :
+            tab_idx = np.empty(shp, dtype=np.int32)
+            b,e = i*all_,(nb_idx-i)*all_
+            for j in range(n):
+               tab_idx[b+(j,)+e].fill(j)
+            new_Lidx.append(tab_idx)
+        K = K[tuple(new_Lidx)+(nos,)]
+        # Polarizations
+        new_Lidx = []
+        nb_idx = len(shp)
+        for i,n in enumerate(shp) :
+            tab_idx = np.empty(shp+(dm,), dtype=np.int32)
+            b,e = i*all_,(nb_idx-i)*all_
+            for j in range(n):
+               tab_idx[b+(j,)+e].fill(j)
+            new_Lidx.append(tab_idx)
         idx = np.arange(len(shp)+1).tolist()
         idx[-2],idx[-1] = idx[-1],idx[-2]
         nos = outer(nos,ones).transpose(idx)
-        P = eval(f"P[{idxK},nos]")
+        P = P[tuple(new_Lidx)+(nos,)]
         return K,P
     #+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
     @staticmethod

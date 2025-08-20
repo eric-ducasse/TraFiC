@@ -1,4 +1,4 @@
-# Version 1.13 - 2025, February, 24
+# Version 1.14 - 2025, August, 20
 # Copyright (Eric Ducasse 2020)
 # Licensed under the EUPL-1.2 or later
 # Institution:  I2M / Arts & Metiers ParisTech
@@ -6,7 +6,21 @@
 #=========================================================================
 import os, sys, psutil, pickle
 import numpy as np
-from numpy.linalg import solve
+if np.__version__[0] == "1":
+    solve = np.linalg.solve
+elif np.__version__[0] == "2": # solve must be redefined with numpy 2.x
+    def solve(A, b):
+        shp_M = A.shape
+        shp_V = b.shape
+        matrices_vectors =  len(shp_M) == len(shp_V)+1
+        if matrices_vectors: b.shape = shp_V+(1,)
+        X = np.linalg.solve(A, b)
+        if matrices_vectors:
+            b.shape = shp_V
+            X.shape = X.shape[:-1]
+        return X
+else:
+    raise SystemError(f"Unknown '{np.__version__}' of numpy.")
 import matplotlib.pyplot as plt
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 #++++ TraFiC location ++++++++++++++++++++++++++++++++++++++++++++++++++++
@@ -974,8 +988,11 @@ class FieldComputation :
         """
         msg = "FieldComputation.compute :: Error\n\t"
         # Fields already computed?
-        fields_to_compute = np.array(fields_to_compute, dtype=str)
-        normal_positions_mm = np.array(normal_positions_mm, dtype=float)
+        fields_to_compute = np.array(fields_to_compute, dtype=np.str_)
+        tuple_fields = tuple([str(nm) for nm in fields_to_compute])
+        str_fields = f"{tuple_fields}"
+        normal_positions_mm = np.array(normal_positions_mm,
+                                       dtype=np.float64)
         nb_fld = len(fields_to_compute)
         nb_pos = len(normal_positions_mm)
         E = np.ones( (nb_fld, nb_pos), dtype=bool)
@@ -1098,7 +1115,7 @@ class FieldComputation :
                 dur = time()-beg
                 self.prt(f'[{dur:.1f}"] ...done.')
                 for iz, zr_mm in enumerate(normal_positions_mm) :
-                    self.prt(f"\t{fields_to_compute} at z/r ="
+                    self.prt(f"\t{str_fields} at z/r ="
                              + f" {zr_mm:.3f} mm...")
                     zr_obs = 1e-3*zr_mm
                     cslc = slc + (slice(None), iz )
@@ -1160,7 +1177,7 @@ class FieldComputation :
                 dur = time()-beg
                 self.prt(f'[{dur:.1f}"] ...done.')
                 for iz, zr_mm in enumerate(normal_positions_mm) :
-                    self.prt(f"\t{fields_to_compute} at z/r ="
+                    self.prt(f"\t{str_fields} at z/r ="
                              + f" {zr_mm:.3f} mm...")
                     zr_obs = 1e-3*zr_mm
                     cslc = slc + (slice(None), iz )
