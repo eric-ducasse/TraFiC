@@ -1,4 +1,4 @@
-# Version 1.65 - 2025, August, 20
+# Version 1.67 - 2025, August, 31
 # Copyright (Eric Ducasse 2020)
 # Licensed under the EUPL-1.2 or later
 # Institution :  I2M / Arts & Metiers ParisTech
@@ -209,7 +209,7 @@ class Space1DGrid :
             Re_max,Im_max = (abs(new_array.real).max(),
                              abs(new_array.imag).max())
             if Im_max > 1e-8*Re_max :
-                msg = ("Space1DGrid.derivative :: Warning: non neglictible "
+                msg = ("Space1DGrid.derivative :: Warning: non negligible "
                        + "imaginary part of the obtained array.")
                 print(msg)
             return new_array.real
@@ -243,7 +243,7 @@ class Space1DGrid :
             Re_max,Im_max = (abs(array_zp.real).max(),
                              abs(array_zp.imag).max())
             if Im_max > 1e-8*Re_max :
-                msg = ("Space1DGrid.zero_padding :: Warning: non neglictible "
+                msg = ("Space1DGrid.zero_padding :: Warning: non negligible "
                        + "imaginary part of the obtained array.")
                 print(msg)
             return (g_zp, array_zp.real)
@@ -424,6 +424,101 @@ class Space1DGrid :
             print( "Orthonormality checking:", \
                    np.allclose(0.5*B_ortho@B_ortho.T, np.eye(n)) )
         return B_ortho
+    #++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+    @staticmethod
+    def affine_sine_coefficients(values, x_min=0.0, x_max=1.0):
+        """'values' is a vector (or an array of vectors) of (n + 1) elements
+           representing the values of a given function evaluated at the
+           points in X = numpy.linspace(x_min, x_max, n + 1), which
+           discretizes the interval [x_min, x_max] (default: [0, 1]) into
+           n subintervals.
+           Provides a combination of affine and sinusoidal decomposition:
+           values = c1*X + c0 + sum_{j=1}^{n-1) d_j*sin(pi*j*X_adim), where
+                                      X_adim = (X - x_min) / (x_max - x_min).
+           Returns (c1, c0, D = (d_j)_{j=1,...,n-1})."""
+        # Coefficients on the interval [0,1]
+        values = np.array(values)
+        shp = values.shape
+        n = shp[-1]-1
+        c0_adim = values[..., 0].copy()
+        values -= np.multiply.outer(c0_adim, np.ones(n+1))
+        c1_adim = values[..., -1].copy()
+        values -= np.multiply.outer(c1_adim, np.linspace(0.0, 1.0, n+1))
+        odd_array = np.zeros( shp[:-1]+(2*n,), dtype = values.dtype)
+        odd_array[..., 1:n] = values[..., 1:-1]
+        odd_array[..., n+1:] = -values[..., -2:0:-1]
+        grid = Space1DGrid(2*n, step=1.0/n)
+        fft_array = grid.fft(odd_array, axis=-1)
+        if np.iscomplexobj(values):
+            D_adim = -1.0j*fft_array[..., 1:n]
+        else:
+            D_adim = (-1.0j*fft_array[..., 1:n]).real.astype(values.dtype)
+        # c1_adim*(X-x_min)/(x_max-x_min) + c0_adim
+        # c1_adim/(x_max-x_min) * X + c0_adim-x_min*(c1_adim/(x_max-x_min))
+        c1 = c1_adim / (x_max-x_min)
+        c0 = c0_adim - c1*x_min
+        return c0, c1, D_adim
+    #++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+    @staticmethod
+    def low_pass_projection(values, x_min, x_max, equally_spaced_positions,
+                            filtering_function=np.ones_like,
+                            with_associated_func=False):
+        """'values' is a vector (or an array of vectors) of (n + 1) elements
+           representing the values of a given function evaluated at (n + 1)
+           equally spaced points over the interval [x_min, x_max].
+           Returns the approximate values of the function at the positions
+           specified by the vector 'equally_spaced_positions', after applying
+           a low-pass filter. The low-pass filter is defined by the function
+           'filtering_function', which is specified over the dimensionless
+           wavenumber interval [0, π]. Reminder: the Nyquist wavenumber
+           is π/dx, where dx denotes the spatial discretization step in
+           the vector 'equally_spaced_positions'.
+        """
+        C0, C1, D = Space1DGrid.affine_sine_coefficients(values, x_min, x_max)
+        V = np.array(equally_spaced_positions)
+        p_min, p_max, p_size = V[0], V[-1], V.shape[0]
+        if p_min < x_min or p_max > x_max:
+            print("Space1DGrid.low_pass_projection :: Warning:\n\t"
+                  + f"the interval [{p_min:.4f}, {p_max:.4f}] is not subset "
+                  + f"of [{x_min:.4f}, {x_max:.4f}].")
+        if np.allclose(V, np.linspace(p_min, p_max, p_size)):
+            dx = V[1]-V[0]
+        else:
+            print("Space1DGrid.low_pass_projection :: Warning:\n\t"
+                  + "'equally_spaced_positions' does not contain "
+                  + "equally spaced values.")
+            dx = (V[1:]-V[:-1]).min()
+        k_max = np.pi/dx
+        dk = np.pi/(x_max-x_min)
+        Vk = dk * np.arange(1, D.shape[-1]+1)
+        booleans = (Vk <= k_max)
+        new_D = D[..., booleans]
+        Vk = Vk[booleans]
+        filt_val = filtering_function( dx*Vk )
+        MX,MK = np.meshgrid( V-x_min, Vk)
+        sine_terms = new_D@np.einsum("ij,i->ij", np.sin(MK*MX), filt_val)
+        if values.ndim == 1 :
+            new_values = C1*equally_spaced_positions + C0 + sine_terms
+        else:
+            new_values = ( np.multiply.outer(C1, equally_spaced_positions)
+                           + np.multiply.outer(C0, np.ones(p_size))
+                           + sine_terms )
+        if with_associated_func:
+            def func(Vx, x_min=x_min, C0=C0, C1=C1, Vk=Vk, new_D=new_D,
+                     filt_val=filt_val):
+                MX,MK = np.meshgrid( Vx-x_min, Vk)
+                sine_terms = new_D@np.einsum("ij,i->ij",
+                                             np.sin(MK*MX),
+                                             filt_val)
+                if new_D.ndim == 1:
+                    return C1*Vx + C0 + sine_terms
+                else:
+                    return ( np.multiply.outer(C1, Vx)
+                             + np.multiply.outer(C0, np.ones_like(Vx))
+                             + sine_terms )
+            return new_values, func
+        else:
+            return new_values
 ###############################################################################
 if __name__ == "__main__" :
     # Space1DGrid Example
@@ -482,6 +577,71 @@ if __name__ == "__main__" :
             print(f"***** Space1DGrid.OrthonormalBasis({n}, {m}) *****"
                   + f"\nBasis of size {sz} defined on {pts} points"
                   + f"\n{B.round(2)}")
+    #------------------------------------------------
+    # Space1DGrid.affine_sine_coefficients and 
+    # Space1DGrid.low_pass_projection static methods:
+    if True:
+        # Equally spaced values over [a_test, b_test]:
+        a_test, b_test, n_test = -2.0, 3.0, 40
+        X_test = np.linspace(a_test, b_test, n_test+1)
+        # Functions
+        def f(x) : return np.where( x < 0.6, 3 - 6*x*(1.1-x),
+                                             1.2 + 2 *(x-0.6) )
+        def r(x, x0=0.0, dx=0.1) :
+            R = np.random.uniform(-dx, dx, size=np.shape(x))
+            V = x0 + np.cumsum(R)
+            V.shape = R.shape
+            return V
+        # 2-by-(n_test+1) array
+        X_test_adim = (X_test-a_test)/(b_test-a_test)
+        T0_test = f(X_test_adim)
+        T_test = np.array( [T0_test, T0_test+r(X_test,-1.0,0.3)] )
+        # Figure
+        fig = plt.figure("Space1DGrid: affine_sine_coefficients "
+                         + "and low_pass_projection static methods",
+                         figsize=(10,6))
+        ax = fig.subplots(1,1)
+        fig.subplots_adjust(0.08,0.09,0.995,0.995)
+        ax.set_xlabel("Position $x$", size=14, weight="bold")
+        ax.set_ylabel("Values", size=14, weight="bold")
+        ax.plot(X_test, T_test[0], "om", markersize=5.0,
+                label=f"Values #1 on [{a_test:.2f}, {b_test:.2f}]",)
+        ax.plot(X_test, T_test[1], "sb", markersize=5.0,
+                label=f"Values #2 on [{a_test:.2f}, {b_test:.2f}]",)
+        # Space1DGrid.affine_sine_coefficients example
+        C0,C1,D = Space1DGrid.affine_sine_coefficients(T_test, a_test, b_test)
+        MX,MK = np.meshgrid(X_test_adim, np.pi*np.arange(1, n_test))
+        A_test = (np.multiply.outer(C1, X_test)
+                  + np.multiply.outer(C0, np.ones_like(X_test))
+                  + D@np.sin(MK*MX))
+        ax.plot(X_test, A_test[0], "d", color="orange",
+                label="Check #1", markersize=3.0)
+        ax.plot(X_test, A_test[1], "d", color="#00FF00",
+                label="Check #2", markersize=3.0)
+        # Space1DGrid.low_pass_projection verifications
+        T_v0 = Space1DGrid.low_pass_projection(T_test[0], a_test,
+                                               b_test, X_test)
+        T_v1 = Space1DGrid.low_pass_projection(T_test[1], a_test,
+                                               b_test, X_test)
+        print("low_pass_projection scalar verifications:",
+              np.allclose(T_v0, T_test[0]) and np.allclose(T_v1, T_test[1]))
+        T_bis = Space1DGrid.low_pass_projection(T_test, a_test, b_test, X_test)
+        print("low_pass_projection array verification:",
+              np.allclose(T_bis, T_test))
+        # Space1DGrid.low_pass_projection example
+        new_X = np.linspace(-1.8, 2.7, 10)
+        new_T, func_T = Space1DGrid.low_pass_projection(
+                                                T_test, a_test, b_test, new_X,
+                                                with_associated_func=True)
+        Vx_loc = np.linspace(a_test, b_test, 501)
+        large_T = func_T(Vx_loc)
+        ax.plot(Vx_loc, large_T[0], "--r", label=f"Associated function #1")
+        ax.plot(new_X, new_T[0], "vr", markersize=6.0,
+                label=f"Projection #1 on {new_X}")
+        ax.plot(Vx_loc, large_T[1], "--c", label=f"Associated function #2")
+        ax.plot(new_X, new_T[1], "^c", markersize=6.0,
+                label=f"Projection #2 on {new_X}")
+        ax.grid() ; ax.legend(fontsize=8) ; plt.show()
 ###############################################################################
 ############################### SharpestPeak ##################################
 ###############################################################################
@@ -614,7 +774,7 @@ if __name__ == "__main__" :
             axF.set_title(r"Abs. val. ($-$, $\bullet$), real (--, $\diamond$)"
                           + r" and imaginary ($\cdots$, $*$) parts")
             axF.set_xlim(-0.1,3.3)
-            plt.show()    
+            plt.show() 
 ###############################################################################
 ###################### Space1DGrid_with_Subinterval ###########################
 ###############################################################################
@@ -679,6 +839,7 @@ class Space1DGrid_with_Subinterval(Space1DGrid):
             zer[i_beg:i_end] = values
             self.__P.append( zer )
         self.__P = np.array(self.__P).transpose()[i_min:i_max]
+        self.__tP = self.__P.transpose()
         # Global indexes of non-zero values around [a,b]
         self.__imin, self.__imax = i_min, i_max
         # Relative indexes of grid values in the interval [a,b]
@@ -687,6 +848,7 @@ class Space1DGrid_with_Subinterval(Space1DGrid):
                                       (i_beg-i_min, i_end-i_min))
                                      for (i_beg, i_end) in sharpest_peaks]
         self.__M = np.linalg.inv(self.__P[self.__idxL:self.__idxR])
+        self.__tM = self.__M.transpose()
         self.__sh_pk_nb = sharpest_peak_number
     #--------------------------------------------------------------------------
     @property
@@ -723,62 +885,78 @@ class Space1DGrid_with_Subinterval(Space1DGrid):
         """The dimension of the vector 'values_in_ab' is the number n of  
            grid points in the interval [a,b], which is also equal to the
            size of the basis B of sharpest peaks. Returns the coefficient
-           vector of the interpolation function in the basis B."""
-        return self.__M@values_in_ab
+           vector of the interpolation function in the basis B.
+           Note that 'values_in_ab' can be an array of vectors."""
+        return values_in_ab@self.__tM
     #--------------------------------------------------------------------------
     def coef_to_val(self, coef_in_B) :
         """Returns the non-zero values on the grid of the interpolation 
            function of coefficients in the basis B given by the vector
-           'coef_in_B'."""
-        return self.__P@coef_in_B
+           'coef_in_B'.
+           Note that 'coef_in_B' can be an array of vectors."""
+        return coef_in_B@self.__tP
     #--------------------------------------------------------------------------
     def val_to_func(self, values_in_ab):
         """The dimension of the vector 'values_in_ab' is the number n of  
            grid points in the interval [a,b], which is also equal to the
            size of the basis B of sharpest peaks. Returns the interpolation
-           function in the basis B."""
-        all_nonzero_values = self.__P@self.__M@values_in_ab
+           function in the basis B.
+           Note that 'values_in_ab' can be an array of vectors.
+           Then, the returned function is of ufunc type."""
+        all_nonzero_values = values_in_ab@self.__tM@self.__tP
         return self.__all_nonzero_values_to_func(all_nonzero_values)
     #--------------------------------------------------------------------------
     def coef_to_func(self, coef_in_B):
         """Returns the interpolation function of coefficients in the basis B
-           given by the vector 'coef_in_B'."""
-        all_nonzero_values =  self.__P@coef_in_B
+           given by the vector 'coef_in_B'.
+           Note that 'coef_in_B' can be an array of vectors.
+           Then, the returned function is of ufunc type."""
+        all_nonzero_values =  coef_in_B@self.__tP
         return self.__all_nonzero_values_to_func(all_nonzero_values)
     #--------------------------------------------------------------------------
     def __all_nonzero_values_to_func(self, all_nonzero_values,
                                      nb_margin_steps=10, zero_padding_coef=63,
-                                     neglictible=1e-8):
+                                     negligible=1e-8):
         """Returns the interpolation function built by zero-padding from the
-           values on the grid in the [idx_min:idx_max] index range."""
+           values 'all_nonzero_values' on the grid in the [idx_min:idx_max]
+           index range.
+           Note that 'all_nonzero_values' can be an array of vectors.
+           Then, the returned function is of ufunc type."""
         nb_nz_val = self.__imax - self.__imin
         if not isinstance(all_nonzero_values, np.ndarray) :
             all_nonzero_values = np.array(all_nonzero_values)
-        assert all_nonzero_values.shape == (nb_nz_val,)
+        shp = all_nonzero_values.shape
+        dty = all_nonzero_values.dtype
+        assert shp[-1] == nb_nz_val
         if nb_nz_val%2 == 1 : 
             nb_val = nb_nz_val + 1 + 2*nb_margin_steps
         else :
             nb_val = nb_nz_val + 2*nb_margin_steps
         xgd = Space1DGrid(nb_val)
-        values = np.zeros( nb_val, dtype=all_nonzero_values.dtype )
-        values[nb_margin_steps:nb_margin_steps+nb_nz_val] = all_nonzero_values
+        values = np.zeros( shp[:-1]+(nb_val,), dtype=dty )
+        values[...,
+               nb_margin_steps:nb_margin_steps+nb_nz_val] = all_nonzero_values
         zpdg, zpval = xgd.zero_padding(values, zero_padding_coef,
-                                       centered=True)
+                                       centered=True, axis=-1)
         idx0 = nb_val//2 - 1 - nb_margin_steps
         X0,dX = self.Xc[self.__imin + idx0], self.dx
         positions = X0 + zpdg.Xc*self.dx
         abs_vals = np.abs(zpval)
-        ampli_max = abs_vals.max()
-        non_zero_vals = (abs_vals >= neglictible*ampli_max)
+        size = abs_vals.shape[-1]
+        ampli_max = np.multiply.outer(abs_vals.max(axis=-1),
+                                      np.ones(size, dtype=abs_vals.dtype))
+        non_zero_vals = (abs_vals > negligible*ampli_max
+                         ).any(axis=tuple(range(abs_vals.ndim-1)))
         idx_deb = non_zero_vals.argmax()
-        idx_fin = non_zero_vals.shape[0] - non_zero_vals[::-1].argmax()
+        idx_fin = size - non_zero_vals[::-1].argmax()
         positions = positions[idx_deb:idx_fin]
-        zpval = zpval[idx_deb:idx_fin]
-        itrp_fct = interp1d(positions, zpval)
+        zpval = zpval[..., idx_deb:idx_fin]
+        itrp_fct = interp1d(positions, zpval, axis=-1)
         def interp_func(x, x_min=positions[0], x_max=positions[-1],
-                        ifunc=itrp_fct):
+                        ifunc=itrp_fct, array_shape=shp[:-1], dtype=dty):
             return np.where( (x_min<=x)&(x<=x_max),
-                             ifunc(np.clip(x, x_min, x_max)), 0.0 )
+                             ifunc(np.clip(x, x_min, x_max)),
+                             np.zeros(array_shape+np.shape(x), dtype) )
         return interp_func    
     #--------------------------------------------------------------------------
     def orthonormal_basis(self, from_or_indexes):
@@ -964,39 +1142,74 @@ if __name__ == "__main__" :
                 axC.set_xlabel("Position $x$",size=14, weight="bold")
                 plt.show()
         if interp_example :
-            fig = plt.figure("Interpolation example", figsize=(14,7))
+            fig = plt.figure("Space1DGrid_with_Subinterval example: "
+                             + "interpolation examples with the methods "
+                             + "val_to_func and coef_to_func",
+                             figsize=(14,7))
             fig.subplots_adjust(0.05,0.08,0.99,0.94,0.2,0.25)
             ax = fig.subplots(1,1)
-            val_test = 0.3*np.random.randn(spgd_ws.basis_dim) + 1.0
+            # Array of test values (shpV=() for a single example).
+            shpV = (2,3)
+            val_test = 0.3*np.random.randn(*(shpV+(spgd_ws.basis_dim,))) + 1.0
             itrp_fct = spgd_ws.val_to_func(val_test)
             Vx = np.linspace(spgd_ws.g_range[0], spgd_ws.g_range[1], 1000)
             Vy = itrp_fct(Vx)
             y_min,y_max = Vy.min(), Vy.max()
-            coef_test = 2.0*np.random.randn(spgd_ws.basis_dim) - 1.0
+            # Array of test coefficients (shpC=() for a single example).
+            shpC = (2,)
+            coef_test = 2.0*np.random.randn(*(shpC+(spgd_ws.basis_dim,))) - 1.0
             itrp_fct2 = spgd_ws.coef_to_func(coef_test)
             Vy2 = itrp_fct2(Vx)
             y_min,y_max = min(y_min, Vy2.min()), max(y_max, Vy2.max())
             y_min,y_max = 1.05*y_min-0.05*y_max, 1.05*y_max-0.05*y_min
+            val_1 = spgd_ws.coef_to_val(spgd_ws.val_to_coef(val_test))
+            val_2 = spgd_ws.coef_to_val(coef_test)
             for x in spgd_ws.Xc :
                 plt.vlines(x, y_min,y_max, "b", linewidth=0.5)
             ax.plot(spgd_ws.Xc, np.zeros_like(spgd_ws.Xc), ".b",
                     markersize=3.0)
-            ax.plot(Vx, Vy, "-g", label="#1 Interpolation function")
-            ax.plot(spgd_ws.Xc[spgd_ws.idx_min:spgd_ws.idx_max],
-                    spgd_ws.coef_to_val(spgd_ws.val_to_coef(val_test)), ".r")
-            ax.plot(spgd_ws.Xc[spgd_ws.idx_left:spgd_ws.idx_right],
-                    val_test, "or", label=r"#1 Random values in $\Gamma$")
-            ax.plot(Vx, Vy2, "-b", label="#2 Interpolation function")
-            ax.plot(spgd_ws.Xc[spgd_ws.idx_min:spgd_ws.idx_max],
-                    spgd_ws.coef_to_val(coef_test), "dm",
-                    label="#2 Random coefficients on sharpest-peak basis")
+            if len(shpV)==0:
+                ax.plot(Vx, Vy, "-g", label="#1 Interpolation function")
+                ax.plot(spgd_ws.Xc[spgd_ws.idx_min:spgd_ws.idx_max],
+                        val_1, ".r")
+                ax.plot(spgd_ws.Xc[spgd_ws.idx_left:spgd_ws.idx_right],
+                        val_test, "or", label=r"#1 Random values in $\Gamma$")
+            else:
+                size1 = np.prod( shpV, dtype=np.int32)
+                for no in range(size1):
+                    idxs = tuple([int(i) for i in np.unravel_index(no, shpV)])
+                    gr, = ax.plot(Vx, Vy[idxs], "-",
+                                  label=f"#1 Interpolation function {idxs}")
+                    clr = gr.get_color()
+                    ax.plot(spgd_ws.Xc[spgd_ws.idx_min:spgd_ws.idx_max],
+                            val_1[idxs], ".", color=clr)
+                    ax.plot(spgd_ws.Xc[spgd_ws.idx_left:spgd_ws.idx_right],
+                            val_test[idxs], "o", color=clr,
+                            label=r"#1 Random values in $\Gamma$"+f" {idxs}")
+            
+            if len(shpC)==0:
+                ax.plot(Vx, Vy2, "-b", label="#2 Interpolation function")
+                ax.plot(spgd_ws.Xc[spgd_ws.idx_min:spgd_ws.idx_max],
+                        val_2, "dm",
+                        label="#2 Random coefficients on sharpest-peak basis")
+            else:
+                size2 = np.prod( shpC, dtype=np.int32)
+                for no in range(size2):
+                    idxs = tuple([int(i) for i in np.unravel_index(no, shpC)])
+                    gr, = ax.plot(Vx, Vy2[idxs], "-",
+                                  label=f"#2 Interpolation function {idxs}")
+                    clr = gr.get_color()
+                    ax.plot(spgd_ws.Xc[spgd_ws.idx_min:spgd_ws.idx_max],
+                            val_2[idxs], "d", color=clr,
+                            label=(f"#2 Random coefficients on sharpest-peak "
+                                   + f"basis {idxs}"))
             ax.set_xlim(*spgd_ws.g_range)
             ax.set_ylim(y_min, y_max)
             ax.set_xlabel("Position $x$",size=14, weight="bold")
             ax.plot([val_a, val_b], 2*[0.97*y_min+0.03*y_max],
                     "-", color="#808080", lw=4.0)
                     
-            ax.legend() ; ax.grid()
+            ax.legend(loc="upper left", fontsize=8) ; ax.grid()
             plt.show()
 ###############################################################################
 ############################# Space2DGrid #####################################
@@ -1166,7 +1379,7 @@ class Space2DGrid :
         else : # Real-valued array
             Re_max,Im_max = abs(new_array.real).max(),abs(new_array.imag).max()
             if Im_max > 1e-8*Re_max :
-                msg = "Space2DGrid.derivative :: Warning: non neglictible "+\
+                msg = "Space2DGrid.derivative :: Warning: non negligible "+\
                       "imaginary part of the obtained array."
                 print(msg)
             return new_array.real
@@ -1206,7 +1419,7 @@ class Space2DGrid :
             Re_max,Im_max = abs(new_array.real).max(),abs(new_array.imag).max()
             if Im_max > 1e-8*Re_max :
                 msg = "Space2DGrid.adim_derivative :: Warning: non "+\
-                      "neglictible imaginary part of the obtained array."
+                      "negligible imaginary part of the obtained array."
                 print(msg)
             return new_array.real
     #++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
@@ -1268,7 +1481,7 @@ class Space2DGrid :
             Re_max,Im_max = abs(array_zp.real).max(),abs(array_zp.imag).max()
             if Im_max > 1e-8*Re_max :
                 msg = "Space2DGrid.zero_padding :: Warning: non " + \
-                      "neglictible imaginary part of the obtained array."
+                      "negligible imaginary part of the obtained array."
                 print(msg)
             return (g_zp,array_zp.real) 
 #++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++    
