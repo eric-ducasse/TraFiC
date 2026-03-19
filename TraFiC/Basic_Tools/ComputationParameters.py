@@ -46,7 +46,7 @@ class ComputationParameters:
     ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     RND_F = 1.0e4  # Sampling frequency rounded to the nearest
                    # multiple of RND_F, in Hertz
-    RND_X = 1.0e-5 # Discretization step(s) rounded to the nearest
+    RND_X = 1.0e-7 # Discretization step(s) rounded to the nearest
                    # multiple of RDN_X, in meters, if possible
     TITLE = "Multilayer Plate/Pipe Computation:"
     #---------------------------------------------------------------------

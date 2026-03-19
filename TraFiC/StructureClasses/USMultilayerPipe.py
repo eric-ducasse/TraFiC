@@ -1,4 +1,4 @@
-# Version 1.22 - 2026, Marsh, 17
+# Version 1.22 - 2026, Marsh, 19
 # Copyright (Eric Ducasse 2020)
 # Licensed under the EUPL-1.2 or later
 # Institution:  I2M / Arts & Metiers ParisTech
@@ -771,7 +771,12 @@ class USMultilayerPipe:
             material = lay.usm.mat_diff_IES
             if material not in materials:
                 materials.append(material)
-            w = f"Width: {w_mm:.3f} mm"
+            if w_mm >= 0.1: # small thicknesses added in v1.22
+                w = f"Width: {w_mm:.3f} mm"
+            elif w_mm >= 0.01:
+                w = f"Width: {w_mm:.4f} mm"
+            else:
+                w = f"Width: {w_mm:.5f} mm"                
             mat = f"Material: {material.name}"
             layer_data.append( [w,mat] )
         # Inner Cylinder
