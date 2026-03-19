@@ -1,4 +1,4 @@
-# Version 1.24 - 2024, March, 2nd
+# Version 1.25 - 2025, September 21
 # Copyright (Eric Ducasse 2020)
 # Licensed under the EUPL-1.2 or later
 # Institution :  I2M / Arts & Metiers ParisTech
@@ -12,7 +12,7 @@ from SpaceGridClasses import Space1DGrid
 class TimeGrid :
     """A 1D grid in time, with the corresponding grid in the frequency 
        domain, and the associated FFT tools."""
-    def __init__(self, duration, dt, t0=0.0, attenuation=1e-5, \
+    def __init__(self, duration, dt, t0=0.0, attenuation=1e-5,
                  verbose=False) :
         """'duration' is the duration of the signals
            'dt' is the sampling period. 't0' is the time origin.
@@ -27,8 +27,8 @@ class TimeGrid :
         else :
             self.__prt = lambda *args : None
         if abs(self.__d-duration) > 0.1*dt :
-            self.__prt("TimeGrid builder :: warning: effective " + \
-                       f"duration ~ {self.__d:.2e} s")
+            self.__prt("TimeGrid builder :: warning: effective "
+                       + f"duration ~ {self.__d:.2e} s")
         self.__gamma = -np.log(attenuation) / self.__d # Gamma value
         self.__ns = nb//2 + 1 # Number of frequency values
         self.__fmax = 0.5 / dt # Maximum frequency
@@ -136,8 +136,8 @@ class TimeGrid :
             dom = "time domain"
             nb = self.__nt
         if array.shape[axis] != nb :
-            msg = f"TimeGrid :: Incompatible shape! {nb} is required " + \
-                  f"instead of {array.shape[axis]} in the {dom}."
+            msg = (f"TimeGrid :: Incompatible shape! {nb} is required "
+                   + f"instead of {array.shape[axis]} in the {dom}.")
             raise ValueError(msg)
         return True
     #-------------------------------------
@@ -266,9 +266,9 @@ class TimeGrid :
         X = ifft(Y,axis=axis)/g_zp.Ts
         return g_zp,np.abs(X)
     #-------------------------------------
-    def enhance_causality(self, array, axis=0, method="least-squares", \
+    def enhance_causality(self, array, axis=0, method="least-squares",
                           alpha=1.0, nb=3, threshold=1e-4,
-                          zero_valued=1e-8, verbose = False, \
+                          zero_valued=1e-8, verbose = False,
                           with_exp_window=False):
         add_values = TimeGrid.add_values_for_enhance_causality
         shp = array.shape
@@ -283,9 +283,9 @@ class TimeGrid :
                 array = vew * array
             values, ib1, n = TimeGrid.clean_values(array, zero_valued)
             nbmax = min(12, ib1//3)
-            values, ib2, rel_err = add_values(values, method, False, \
-                                              alpha, nbmax, nb, \
-                                              threshold, zero_valued, \
+            values, ib2, rel_err = add_values(values, method, False,
+                                              alpha, nbmax, nb,
+                                              threshold, zero_valued,
                                               verbose)
             idx_beg = ib1+ib2
             new_array = np.zeros_like( array )
@@ -303,8 +303,8 @@ class TimeGrid :
         for i,row in enumerate(tab) :
             values, ib1, n = TimeGrid.clean_values(row, zero_valued)
             nbmax = min(12, ib1//3)
-            values, ib2, re = add_values(values, method, False, alpha, \
-                                         nbmax, nb, threshold, \
+            values, ib2, re = add_values(values, method, False, alpha,
+                                         nbmax, nb, threshold,
                                          zero_valued, verbose)
             idx_beg = ib1+ib2
             row = np.zeros_like( row )
@@ -339,10 +339,10 @@ class TimeGrid :
         return values, idx_beg, n
     #-------------------------------------
     @staticmethod
-    def add_values_for_enhance_causality(values, method="least-squares", \
+    def add_values_for_enhance_causality(values, method="least-squares",
                                          clean_values=True,
-                                         alpha=1.0, nbmax=12, nb=3, \
-                                         threshold=1e-4, zero_valued=1e-8,\
+                                         alpha=1.0, nbmax=12, nb=3,
+                                         threshold=1e-4, zero_valued=1e-8,
                                          verbose = True):
         """add values before the vector 'values' for minimizing the
            oscillations of the corresponding continuous-time signal
@@ -364,6 +364,10 @@ class TimeGrid :
            |parasitic oscillations| / |values|. 
            
         """
+        if verbose :
+            prt = print
+        else :
+            prt = lambda *args : None
         if clean_values :
             values, idx_beg, n = TimeGrid.clean_values(values, zero_valued)
             if n == 0 : return values, 0, 0.0
@@ -389,14 +393,13 @@ class TimeGrid :
                 n += nb
                 err2 = values@M[:n,:n]@values
                 err1 = values[nb:]@M[nb:n,nb:n]@values[nb:]
-                print(f"k = {k}, {err1:.2e} -> {err2:.2e}")
+                prt(f"k = {k}, {err1:.2e} -> {err2:.2e}")
                 rel_err = np.sqrt(err2)/norm_val 
                 if rel_err <= threshold :
                     return values, idx_beg, rel_err
-            if verbose :
-                print(f"Warning: Relative error <= {threshold:.2e} " + \
-                      f"not reached!\n\t{rel_err:.2e} for {nbmax} " + \
-                       "additional values.")
+            prt(f"Warning: Relative error <= {threshold:.2e} "
+                + f"not reached!\n\t{rel_err:.2e} for {nbmax} "
+                + "additional values.")
             return values, idx_beg, rel_err
         elif method == "maximum" :
             subdiv = 5
@@ -404,8 +407,8 @@ class TimeGrid :
             #$$$$$ TO DO $$$$$$$
             #$$$$$$$$$$$$$$$$$$$
         else :
-            msg = "TimeGrid.add_values_for_enhance_causality error:\n" + \
-                  f"\tUnknown '{method}'."
+            msg = ("TimeGrid.add_values_for_enhance_causality error:\n"
+                   + f"\tUnknown '{method}'.")
             raise ValueError(msg)
 ############################################################################
 if __name__ == "__main__" :
@@ -444,8 +447,8 @@ if __name__ == "__main__" :
     if False : # Test of envelope
         tgenv = TimeGrid(10,0.1,-4)
         T = tgenv.T
-        signal = np.sin(2*np.pi*T)*np.exp(-T**2)+\
-                 0.3*np.sin(2.3*np.pi*T)*np.exp(-1.5*(T-3.1)**2)
+        signal = ( np.sin(2*np.pi*T)*np.exp(-T**2)
+                   + 0.3*np.sin(2.3*np.pi*T)*np.exp(-1.5*(T-3.1)**2) )
         plt.plot(tgenv.T,signal,".r")
         zpg0,sig_zp = tgenv.zero_padding(signal,5)
         plt.plot(zpg0.T,sig_zp,"-g")
@@ -462,16 +465,16 @@ if __name__ == "__main__" :
         all_values = np.zeros( tm_gd.nt )
         all_values[idx0:idx0+nb_val] = values
         tm_zp, zp_values = tm_gd.zero_padding(all_values, 9.0)
-        fig = plt.figure("Test of enhance_causality functions", \
+        fig = plt.figure("Test of enhance_causality functions",
                          figsize = (14,7) )
-        fig.subplots_adjust(top=0.96, bottom=0.09, left=0.05, \
+        fig.subplots_adjust(top=0.96, bottom=0.09, left=0.05,
                             right=0.99, hspace=0.25, wspace=0.2 )
         axes = list(zip(fig.subplots(2,1),(1,1e4)))
         for ax,c in axes : 
             ax.plot(tm_zp.T, c*zp_values, "-b")
             ax.plot(tm_gd.T, c*all_values, "or")
-        new_val, idx_beg, err = \
-            TimeGrid.add_values_for_enhance_causality(values)    
+        new_val, idx_beg, err = (
+            TimeGrid.add_values_for_enhance_causality(values) )   
         new_values = np.zeros( tm_gd.nt )
         new_values[idx0+idx_beg:idx0+idx_beg+new_val.shape[0]] = new_val
         _, zp_new_values = tm_gd.zero_padding(new_values, 9.0)
@@ -481,19 +484,19 @@ if __name__ == "__main__" :
         nv1, err1 = tm_gd.enhance_causality( all_values )
         for ax,c in axes : 
             ax.plot(tm_gd.T, c*nv1, "om", markersize = 1.5)
-        nv2, err2 = tm_gd.enhance_causality( \
-                       all_values.reshape(all_values.shape+(1,1)))
+        nv2, err2 = tm_gd.enhance_causality(
+                        all_values.reshape(all_values.shape+(1,1)) )
         for ax,c in axes :
             ax.plot(tm_gd.T, c*nv2[:,0,0], "+m", markersize = 3.0)
-        nv3, err3 = tm_gd.enhance_causality( all_values, \
+        nv3, err3 = tm_gd.enhance_causality( all_values,
                                              with_exp_window=True)
         _, zp_nv3 = tm_gd.zero_padding(nv3, 9.0)
         for ax,c in axes : 
             ax.plot(tm_zp.T, c*zp_nv3, ":g")
             ax.plot(tm_gd.T, c*nv3, "^g", markersize = 4.0)
-        nv4, err4 = tm_gd.enhance_causality( \
-                       all_values.reshape(all_values.shape+(1,1)), \
-                                             with_exp_window=True)
+        nv4, err4 = tm_gd.enhance_causality(
+                        all_values.reshape(all_values.shape+(1,1)),
+                        with_exp_window=True)
         for ax,c in axes :
             ax.plot(tm_gd.T, c*nv4[:,0,0], "xb", markersize = 5.0)
             ax.set_xlim(-idx0-0.5, 10)

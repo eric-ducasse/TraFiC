@@ -1,4 +1,4 @@
-# Version 3.78 - 2024, February, 14
+# Version 3.79 - 2026, Marsh, 9
 # Copyright (Eric Ducasse 2020)
 # Licensed under the EUPL-1.2 or later
 # Institution:  I2M / Arts & Metiers ParisTech
@@ -983,6 +983,19 @@ class IsotropicElasticSolid(Material) :
             return None
         else : return np.sqrt(self.__c44.real/self.rho)
     @property
+    def real_cR(self) : 
+        """Real Rayleigh-wave speed."""
+        if self.__c44 is None or self.rho is None :
+            return None
+        else :
+            cT = self.real_cT
+            va = (cT/self.real_cL)**2
+            P = [0.0625, -0.5, 1.5 - va, va - 1]
+            R = np.roots(P)
+            R = [ r.real for r in R if np.abs(r.imag)<1e-8
+                  and 0.0 < r.real < 1.0 ]
+        return float(np.sqrt(R[0])*cT)
+    @property
     def c11(self) : return self.__c11
     @property
     def c12(self) : return self.__c12
@@ -1613,9 +1626,10 @@ if __name__ == "__main__" :
     print(m1.tosave())
     list_mat = [m1]
 # reading/writing in text format :
-    m2 = IsotropicElasticSolid({"rho":2700.0,"cL": 5600,"cT": 3600}, \
+    m2 = IsotropicElasticSolid({"rho":2700.0,"cL": 5600,"cT": 3200}, \
                                 "iso #2")
     print(m2)
+    print(f"Rayleigh-wave Velocity ~ {1e-3*m2.real_cR:.2f} mm/µs")
     print(m2.tosave())
     list_mat.append(m2)
     for ordre,materiau in enumerate(list_mat,1) :

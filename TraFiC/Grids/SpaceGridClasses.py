@@ -1,4 +1,4 @@
-# Version 1.67 - 2025, August, 31
+# Version 1.69 - 2025, September, 26
 # Copyright (Eric Ducasse 2020)
 # Licensed under the EUPL-1.2 or later
 # Institution :  I2M / Arts & Metiers ParisTech
@@ -595,7 +595,11 @@ if __name__ == "__main__" :
         # 2-by-(n_test+1) array
         X_test_adim = (X_test-a_test)/(b_test-a_test)
         T0_test = f(X_test_adim)
-        T_test = np.array( [T0_test, T0_test+r(X_test,-1.0,0.3)] )
+        is_complex = True
+        if is_complex:
+            T_test = T0_test + 1.0j*(T0_test+r(X_test,-1.0,0.3))
+        else:
+            T_test = np.array( [T0_test, T0_test+r(X_test,-1.0,0.3)] )
         # Figure
         fig = plt.figure("Space1DGrid: affine_sine_coefficients "
                          + "and low_pass_projection static methods",
@@ -604,27 +608,49 @@ if __name__ == "__main__" :
         fig.subplots_adjust(0.08,0.09,0.995,0.995)
         ax.set_xlabel("Position $x$", size=14, weight="bold")
         ax.set_ylabel("Values", size=14, weight="bold")
-        ax.plot(X_test, T_test[0], "om", markersize=5.0,
-                label=f"Values #1 on [{a_test:.2f}, {b_test:.2f}]",)
-        ax.plot(X_test, T_test[1], "sb", markersize=5.0,
-                label=f"Values #2 on [{a_test:.2f}, {b_test:.2f}]",)
+        if is_complex:
+            ax.plot(X_test, T_test.real, "om", markersize=5.0,
+                    label=f"Values #1 on [{a_test:.2f}, {b_test:.2f}]")
+            ax.plot(X_test, T_test.imag, "sb", markersize=5.0,
+                    label=f"Values #2 on [{a_test:.2f}, {b_test:.2f}]")
+        else:
+            ax.plot(X_test, T_test[0], "om", markersize=5.0,
+                    label=f"Values #1 on [{a_test:.2f}, {b_test:.2f}]")
+            ax.plot(X_test, T_test[1], "sb", markersize=5.0,
+                    label=f"Values #2 on [{a_test:.2f}, {b_test:.2f}]")
         # Space1DGrid.affine_sine_coefficients example
         C0,C1,D = Space1DGrid.affine_sine_coefficients(T_test, a_test, b_test)
         MX,MK = np.meshgrid(X_test_adim, np.pi*np.arange(1, n_test))
         A_test = (np.multiply.outer(C1, X_test)
                   + np.multiply.outer(C0, np.ones_like(X_test))
                   + D@np.sin(MK*MX))
-        ax.plot(X_test, A_test[0], "d", color="orange",
-                label="Check #1", markersize=3.0)
-        ax.plot(X_test, A_test[1], "d", color="#00FF00",
-                label="Check #2", markersize=3.0)
+        if is_complex:
+            ax.plot(X_test, A_test.real, "d", color="orange",
+                    label="Check #1", markersize=3.0)
+            ax.plot(X_test, A_test.imag, "d", color="#00FF00",
+                    label="Check #2", markersize=3.0)
+        else:
+            ax.plot(X_test, A_test[0], "d", color="orange",
+                    label="Check #1", markersize=3.0)
+            ax.plot(X_test, A_test[1], "d", color="#00FF00",
+                    label="Check #2", markersize=3.0)
         # Space1DGrid.low_pass_projection verifications
-        T_v0 = Space1DGrid.low_pass_projection(T_test[0], a_test,
-                                               b_test, X_test)
-        T_v1 = Space1DGrid.low_pass_projection(T_test[1], a_test,
-                                               b_test, X_test)
-        print("low_pass_projection scalar verifications:",
-              np.allclose(T_v0, T_test[0]) and np.allclose(T_v1, T_test[1]))
+        if is_complex:
+            T_v0 = Space1DGrid.low_pass_projection(T_test.real, a_test,
+                                                   b_test, X_test)
+            T_v1 = Space1DGrid.low_pass_projection(T_test.imag, a_test,
+                                                   b_test, X_test)
+            print("low_pass_projection scalar verifications:",
+                  np.allclose(T_v0, T_test.real) and
+                  np.allclose(T_v1, T_test.imag))
+        else:
+            T_v0 = Space1DGrid.low_pass_projection(T_test[0], a_test,
+                                                   b_test, X_test)
+            T_v1 = Space1DGrid.low_pass_projection(T_test[1], a_test,
+                                                   b_test, X_test)
+            print("low_pass_projection scalar verifications:",
+                  np.allclose(T_v0, T_test[0]) and
+                  np.allclose(T_v1, T_test[1]))
         T_bis = Space1DGrid.low_pass_projection(T_test, a_test, b_test, X_test)
         print("low_pass_projection array verification:",
               np.allclose(T_bis, T_test))
@@ -635,12 +661,24 @@ if __name__ == "__main__" :
                                                 with_associated_func=True)
         Vx_loc = np.linspace(a_test, b_test, 501)
         large_T = func_T(Vx_loc)
-        ax.plot(Vx_loc, large_T[0], "--r", label=f"Associated function #1")
-        ax.plot(new_X, new_T[0], "vr", markersize=6.0,
-                label=f"Projection #1 on {new_X}")
-        ax.plot(Vx_loc, large_T[1], "--c", label=f"Associated function #2")
-        ax.plot(new_X, new_T[1], "^c", markersize=6.0,
-                label=f"Projection #2 on {new_X}")
+        if is_complex:
+            ax.plot(Vx_loc, large_T.real, "--r",
+                    label=f"Associated function #1")
+            ax.plot(new_X, new_T.real, "vr", markersize=6.0,
+                    label=f"Projection #1 on {new_X}")
+            ax.plot(Vx_loc, large_T.imag, "--c",
+                    label=f"Associated function #2")
+            ax.plot(new_X, new_T.imag, "^c", markersize=6.0,
+                    label=f"Projection #2 on {new_X}")
+        else:
+            ax.plot(Vx_loc, large_T[0], "--r",
+                    label=f"Associated function #1")
+            ax.plot(new_X, new_T[0], "vr", markersize=6.0,
+                    label=f"Projection #1 on {new_X}")
+            ax.plot(Vx_loc, large_T[1], "--c",
+                    label=f"Associated function #2")
+            ax.plot(new_X, new_T[1], "^c", markersize=6.0,
+                    label=f"Projection #2 on {new_X}")
         ax.grid() ; ax.legend(fontsize=8) ; plt.show()
 ###############################################################################
 ############################### SharpestPeak ##################################
@@ -880,6 +918,12 @@ class Space1DGrid_with_Subinterval(Space1DGrid):
     def adjusted(self): return self.__adj
     @property
     def interval_ab(self): return self.__a, self.__b
+    @property
+    def local_grid(self):
+        return self.Xc[self.idx_left:self.idx_right]
+    @property
+    def local_extended_grid(self):
+        return self.Xc[self.idx_min:self.idx_max]
     #--------------------------------------------------------------------------
     def val_to_coef(self, values_in_ab) :
         """The dimension of the vector 'values_in_ab' is the number n of  
