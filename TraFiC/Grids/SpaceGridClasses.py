@@ -1,4 +1,4 @@
-# Version 1.69 - 2025, September, 26
+# Version 1.70 - 2026, October, 5
 # Copyright (Eric Ducasse 2020)
 # Licensed under the EUPL-1.2 or later
 # Institution :  I2M / Arts & Metiers ParisTech
@@ -148,7 +148,7 @@ class Space1DGrid :
     def __check(self, array, axis) :
         if array.shape[axis] != self.nb :
             msg = ("Space1DGrid :: Incompatible shape!\n\t"
-                   + "{self.nb} is required  instead of {array.shape[axis]}")
+                   + f"{self.nb} is required  instead of {array.shape[axis]}")
             raise ValueError(msg)
         return True
     def sort2cent(self, array, axis=0) :

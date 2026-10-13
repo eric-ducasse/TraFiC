@@ -1,4 +1,4 @@
-# Version 1.73 - 2026, Marsh, 19
+# Version 1.74 - 2026, October, 7
 # Copyright (Eric Ducasse 2020)
 # Licensed under the EUPL-1.2 or later
 # Institution:  I2M / Arts & Metiers ParisTech
@@ -406,8 +406,8 @@ class USMultilayerPlate:
         up_lay = self.layers[0]
         rmin = self.R[0]
         cmin,cmil = self.C[:2]
-        for down_lay,cmax,rmax in \
-            zip(self.layers[1:],self.C[2:],self.R[1:]):
+        for down_lay,cmax,rmax in zip(self.layers[1:], self.C[2:],
+                                      self.R[1:]):
             FCup = up_lay.usm.fieldComponents(0.0,up_lay.h)
             FCdown = down_lay.usm.fieldComponents(-down_lay.h,0.0)
             if up_lay.npw == 6:
@@ -421,9 +421,10 @@ class USMultilayerPlate:
                 if down_lay.npw == 6: # Fluid/Solid                             
                     self.__M[...,rmin:rmax,cmin:cmil] = -FCup[...,2:,:]
                     self.__M[...,rmin:rmax,cmil:cmax] = FCdown[...,2:,:]
-                else: # down_lay.npw == 2, Fluid/Fluid                            
-                    self.__M[...,rmin:rmax,cmin:cmil] = -FCup[...,2:,:]
-                    self.__M[...,rmin:rmax,cmil:cmax] = FCdown[...,2:,:]
+                else: # down_lay.npw == 2, Fluid/Fluid
+                    # Bug fixed on October 7, 2026
+                    self.__M[...,rmin:rmax,cmin:cmil] = -FCup[...,2::3,:]
+                    self.__M[...,rmin:rmax,cmil:cmax] = FCdown[...,2::3,:]
             up_lay = down_lay
             cmin,cmil = cmil,cmax
             rmin = rmax
